@@ -6,10 +6,14 @@
             girl: { src: 'girl.png' },
             apple: { src: 'apple.png' },
             cookie: { src: 'cookie.png' },
-            house: { src: 'house.png' }
+            house: { src: 'house.png' },
+            outdoorBackground: { src: 'outdoor.png' },
+            orangeTree: { src: 'orange_tree.png' },
+            orange: { src: 'orange.png' }
         },
         imagesLoaded: 0,
         totalImages: 0,
+        currentScene: 'indoor',
 
         init: function() {
             this.canvas = document.getElementById('gameCanvas');
@@ -43,15 +47,34 @@
 
         update: function() {
             girl.move();
+            this.checkSceneTransition();
+            if (this.currentScene === 'outdoor') {
+                orangeTree.update();
+            }
         },
 
         draw: function() {
             this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-            this.ctx.drawImage(this.images.house.img, 0, 0, this.canvas.width, this.canvas.height);
+            if (this.currentScene === 'indoor') {
+                this.ctx.drawImage(this.images.house.img, 0, 0, this.canvas.width, this.canvas.height);
+                items.apple.draw(this.ctx);
+                items.cookie.draw(this.ctx);
+            } else if (this.currentScene === 'outdoor') {
+                this.ctx.drawImage(this.images.outdoorBackground.img, 0, 0, this.canvas.width, this.canvas.height);
+                orangeTree.draw(this.ctx);
+            }
             girl.draw(this.ctx);
-            items.apple.draw(this.ctx);
-            items.cookie.draw(this.ctx);
             speechBubble.draw(this.ctx);
+        },
+
+        checkSceneTransition: function() {
+            if (this.currentScene === 'indoor' && girl.x > this.canvas.width - girl.width) {
+                this.currentScene = 'outdoor';
+                girl.x = 0;
+            } else if (this.currentScene === 'outdoor' && girl.x < 0) {
+                this.currentScene = 'indoor';
+                girl.x = this.canvas.width - girl.width;
+            }
         }
     };
 
@@ -76,6 +99,48 @@
 
         draw: function(ctx) {
             ctx.drawImage(game.images.girl.img, this.x, this.y, this.width, this.height);
+        }
+    };
+
+    const orangeTree = {
+        x: 500,
+        y: 200,
+        width: 150,
+        height: 200,
+        oranges: [],
+
+        init: function() {
+            for (let i = 0; i < 5; i++) {
+                this.oranges.push({
+                    x: this.x + 20 + Math.random() * (this.width - 40),
+                    y: this.y + 50 + Math.random() * (this.height - 100),
+                    width: 30,
+                    height: 30,
+                    picked: false
+                });
+            }
+        },
+
+        update: function() {
+            this.oranges.forEach(orange => {
+                if (!orange.picked &&
+                    girl.x < orange.x + orange.width &&
+                    girl.x + girl.width > orange.x &&
+                    girl.y < orange.y + orange.height &&
+                    girl.y + girl.height > orange.y) {
+                    orange.picked = true;
+                    speechBubble.show('Yum! Fresh orange!');
+                }
+            });
+        },
+
+        draw: function(ctx) {
+            ctx.drawImage(game.images.orangeTree.img, this.x, this.y, this.width, this.height);
+            this.oranges.forEach(orange => {
+                if (!orange.picked) {
+                    ctx.drawImage(game.images.orange.img, orange.x, orange.y, orange.width, orange.height);
+                }
+            });
         }
     };
 
@@ -215,4 +280,5 @@
     // Initialize the game
     game.init();
     input.init();
+    orangeTree.init();
 })();
