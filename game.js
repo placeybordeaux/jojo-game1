@@ -15,6 +15,18 @@
         totalImages: 0,
         currentScene: 'indoor',
 
+    const door = {
+        x: 700,
+        y: 200,
+        width: 60,
+        height: 120,
+        
+        draw: function(ctx) {
+            ctx.fillStyle = 'brown';
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+        }
+    };
+
         init: function() {
             this.canvas = document.getElementById('gameCanvas');
             this.ctx = this.canvas.getContext('2d');
@@ -57,6 +69,7 @@
             this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
             if (this.currentScene === 'indoor') {
                 this.ctx.drawImage(this.images.house.img, 0, 0, this.canvas.width, this.canvas.height);
+                door.draw(this.ctx);  // Draw the door
                 items.apple.draw(this.ctx);
                 items.cookie.draw(this.ctx);
             } else if (this.currentScene === 'outdoor') {
@@ -68,14 +81,20 @@
         },
 
         checkSceneTransition: function() {
-            if (this.currentScene === 'indoor' && girl.x > this.canvas.width - girl.width) {
+            if (this.currentScene === 'indoor' && 
+                girl.x + girl.width > door.x &&
+                girl.x < door.x + door.width &&
+                girl.y + girl.height > door.y &&
+                girl.y < door.y + door.height &&
+                input.spacePressed) {
                 this.currentScene = 'outdoor';
-                girl.x = 0;
+                girl.x = 50;  // Start a bit inside the outdoor scene
+                input.spacePressed = false;  // Reset space press
             } else if (this.currentScene === 'outdoor' && girl.x < 0) {
                 this.currentScene = 'indoor';
-                girl.x = this.canvas.width - girl.width;
+                girl.x = this.canvas.width - girl.width - 50;  // Start a bit inside the house
             }
-        }
+        },
     };
 
     const girl = {
@@ -239,6 +258,7 @@
         leftPressed: false,
         upPressed: false,
         downPressed: false,
+        spacePressed: false,
 
         init: function() {
             document.addEventListener('keydown', this.keyDownHandler.bind(this));
@@ -255,6 +275,7 @@
             } else if (e.key === 'Down' || e.key === 'ArrowDown') {
                 this.downPressed = true;
             } else if (e.key === ' ' || e.key === 'Spacebar') {
+                this.spacePressed = true;
                 this.interact();
             }
         },
@@ -268,6 +289,8 @@
                 this.downPressed = false;
             } else if (e.key === 'Left' || e.key === 'ArrowLeft') {
                 this.leftPressed = false;
+            } else if (e.key === ' ' || e.key === 'Spacebar') {
+                this.spacePressed = false;
             }
         },
 
