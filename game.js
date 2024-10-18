@@ -11,8 +11,7 @@
             orangeTree: { src: 'orange_tree.png' },
             orange: { src: 'orange.png' },
             chicken: { src: 'chicken.png' },
-            chickenCoop: { src: 'chicken_coop.png' },
-            heart: { src: 'heart.png' }
+            chickenCoop: { src: 'chicken_coop.png' }
         },
         imagesLoaded: 0,
         totalImages: 0,
@@ -283,7 +282,8 @@
                     };
                     let heartInterval = setInterval(() => {
                         heart.y -= heart.speed;
-                        game.ctx.drawImage(game.images.heart.img, heart.x, heart.y, heart.size, heart.size);
+                        game.ctx.font = `${heart.size}px Arial`;
+                        game.ctx.fillText('❤️', heart.x, heart.y);
                         if (heart.y < 0) {
                             clearInterval(heartInterval);
                         }
