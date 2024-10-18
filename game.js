@@ -87,7 +87,7 @@
 
     const door = {
         x: 700,
-        y: 200,
+        y: 280,  // Moved down to the bottom
         width: 60,
         height: 120,
         
