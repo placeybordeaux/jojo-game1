@@ -34,6 +34,10 @@
                         this.startGame();
                     }
                 };
+                this.images[key].img.onerror = () => {
+                    console.error(`Failed to load image: ${key} (${this.images[key].src})`);
+                    alert(`Error: Failed to load image '${key}' (${this.images[key].src}). Please check if the file exists and the path is correct.`);
+                };
                 this.images[key].img.src = this.images[key].src;
             }
         },
