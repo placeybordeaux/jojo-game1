@@ -122,8 +122,8 @@
     };
 
     const orangeTree = {
-        x: 500,
-        y: 200,
+        x: 200,
+        y: 0,
         width: 150,
         height: 200,
         oranges: [],
