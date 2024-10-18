@@ -15,18 +15,6 @@
         totalImages: 0,
         currentScene: 'indoor',
 
-    const door = {
-        x: 700,
-        y: 200,
-        width: 60,
-        height: 120,
-        
-        draw: function(ctx) {
-            ctx.fillStyle = 'brown';
-            ctx.fillRect(this.x, this.y, this.width, this.height);
-        }
-    };
-
         init: function() {
             this.canvas = document.getElementById('gameCanvas');
             this.ctx = this.canvas.getContext('2d');
@@ -95,6 +83,18 @@
                 girl.x = this.canvas.width - girl.width - 50;  // Start a bit inside the house
             }
         },
+    };
+
+    const door = {
+        x: 700,
+        y: 200,
+        width: 60,
+        height: 120,
+        
+        draw: function(ctx) {
+            ctx.fillStyle = 'brown';
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+        }
     };
 
     const girl = {
