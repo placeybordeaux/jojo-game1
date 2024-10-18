@@ -116,15 +116,31 @@
         carryingChicken: false,
         
         move: function() {
+            let dx = 0;
+            let dy = 0;
+
             if (input.rightPressed && this.x < game.canvas.width - this.width) {
-                this.x += this.speed;
-            } else if (input.leftPressed && this.x > 0) {
-                this.x -= this.speed;
-            } else if (input.upPressed && this.y > 0) {
-                this.y -= this.speed;
-            } else if (input.downPressed && this.y < game.canvas.height - this.height) {
-                this.y += this.speed;
+                dx += this.speed;
             }
+            if (input.leftPressed && this.x > 0) {
+                dx -= this.speed;
+            }
+            if (input.upPressed && this.y > 0) {
+                dy -= this.speed;
+            }
+            if (input.downPressed && this.y < game.canvas.height - this.height) {
+                dy += this.speed;
+            }
+
+            // Normalize diagonal movement
+            if (dx !== 0 && dy !== 0) {
+                const factor = Math.sqrt(2) / 2;
+                dx *= factor;
+                dy *= factor;
+            }
+
+            this.x += dx;
+            this.y += dy;
         },
 
         draw: function(ctx) {
