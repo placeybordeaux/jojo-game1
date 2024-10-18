@@ -9,7 +9,10 @@
             house: { src: 'house.png' },
             outdoorBackground: { src: 'outdoor.png' },
             orangeTree: { src: 'orange_tree.png' },
-            orange: { src: 'orange.png' }
+            orange: { src: 'orange.png' },
+            chicken: { src: 'chicken.png' },
+            chickenCoop: { src: 'chicken_coop.png' },
+            heart: { src: 'heart.png' }
         },
         imagesLoaded: 0,
         totalImages: 0,
@@ -50,6 +53,8 @@
             this.checkSceneTransition();
             if (this.currentScene === 'outdoor') {
                 orangeTree.update();
+                chickens.update();
+                chickenCoop.checkChickenDelivery();
             }
         },
 
@@ -63,6 +68,8 @@
             } else if (this.currentScene === 'outdoor') {
                 this.ctx.drawImage(this.images.outdoorBackground.img, 0, 0, this.canvas.width, this.canvas.height);
                 orangeTree.draw(this.ctx);
+                chickens.draw(this.ctx);
+                chickenCoop.draw(this.ctx);
             }
             girl.draw(this.ctx);
             speechBubble.draw(this.ctx);
@@ -103,6 +110,7 @@
         width: 50,
         height: 100,
         speed: 5,
+        carryingChicken: false,
         
         move: function() {
             if (input.rightPressed && this.x < game.canvas.width - this.width) {
@@ -118,6 +126,30 @@
 
         draw: function(ctx) {
             ctx.drawImage(game.images.girl.img, this.x, this.y, this.width, this.height);
+        },
+
+        interactWithChickens: function() {
+            if (!this.carryingChicken) {
+                chickens.list.forEach(chicken => {
+                    if (!chicken.carried &&
+                        this.x < chicken.x + chicken.width &&
+                        this.x + this.width > chicken.x &&
+                        this.y < chicken.y + chicken.height &&
+                        this.y + this.height > chicken.y) {
+                        chicken.carried = true;
+                        this.carryingChicken = true;
+                        speechBubble.show('Got you!');
+                    }
+                });
+            } else {
+                chickens.list.forEach(chicken => {
+                    if (chicken.carried) {
+                        chicken.carried = false;
+                        this.carryingChicken = false;
+                        speechBubble.show('Off you go!');
+                    }
+                });
+            }
         }
     };
 
@@ -160,6 +192,100 @@
                     ctx.drawImage(game.images.orange.img, orange.x, orange.y, orange.width, orange.height);
                 }
             });
+        }
+    };
+
+    const chickens = {
+        list: [],
+        init: function() {
+            for (let i = 0; i < 3; i++) {
+                this.list.push({
+                    x: Math.random() * (game.canvas.width - 50),
+                    y: Math.random() * (game.canvas.height - 50),
+                    width: 50,
+                    height: 50,
+                    speed: 1,
+                    direction: Math.random() * Math.PI * 2,
+                    lastCluck: 0,
+                    carried: false
+                });
+            }
+        },
+        update: function() {
+            this.list.forEach(chicken => {
+                if (!chicken.carried) {
+                    chicken.x += Math.cos(chicken.direction) * chicken.speed;
+                    chicken.y += Math.sin(chicken.direction) * chicken.speed;
+
+                    if (chicken.x < 0 || chicken.x > game.canvas.width - chicken.width ||
+                        chicken.y < 0 || chicken.y > game.canvas.height - chicken.height) {
+                        chicken.direction = Math.random() * Math.PI * 2;
+                    }
+
+                    if (Date.now() - chicken.lastCluck > 5000 + Math.random() * 5000) {
+                        speechBubble.show('Cluck!', chicken.x, chicken.y);
+                        chicken.lastCluck = Date.now();
+                    }
+                } else {
+                    chicken.x = girl.x;
+                    chicken.y = girl.y - chicken.height;
+                }
+            });
+        },
+        draw: function(ctx) {
+            this.list.forEach(chicken => {
+                if (!chicken.carried) {
+                    ctx.drawImage(game.images.chicken.img, chicken.x, chicken.y, chicken.width, chicken.height);
+                }
+            });
+        }
+    };
+
+    const chickenCoop = {
+        x: 600,
+        y: 50,
+        width: 100,
+        height: 100,
+        chickensInside: 0,
+
+        draw: function(ctx) {
+            ctx.drawImage(game.images.chickenCoop.img, this.x, this.y, this.width, this.height);
+        },
+
+        checkChickenDelivery: function() {
+            chickens.list.forEach(chicken => {
+                if (chicken.carried &&
+                    girl.x < this.x + this.width &&
+                    girl.x + girl.width > this.x &&
+                    girl.y < this.y + this.height &&
+                    girl.y + girl.height > this.y) {
+                    chicken.carried = false;
+                    this.chickensInside++;
+                    chicken.x = -100;  // Move chicken off-screen
+                    chicken.y = -100;
+                    this.showHearts();
+                }
+            });
+        },
+
+        showHearts: function() {
+            for (let i = 0; i < 5; i++) {
+                setTimeout(() => {
+                    let heart = {
+                        x: this.x + Math.random() * this.width,
+                        y: this.y + Math.random() * this.height,
+                        size: 20,
+                        speed: 2
+                    };
+                    let heartInterval = setInterval(() => {
+                        heart.y -= heart.speed;
+                        game.ctx.drawImage(game.images.heart.img, heart.x, heart.y, heart.size, heart.size);
+                        if (heart.y < 0) {
+                            clearInterval(heartInterval);
+                        }
+                    }, 50);
+                }, i * 200);
+            }
         }
     };
 
@@ -297,6 +423,9 @@
         interact: function() {
             items.apple.interact();
             items.cookie.interact();
+            if (game.currentScene === 'outdoor') {
+                girl.interactWithChickens();
+            }
         }
     };
 
@@ -304,4 +433,5 @@
     game.init();
     input.init();
     orangeTree.init();
+    chickens.init();
 })();
