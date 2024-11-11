@@ -75,7 +75,10 @@
                 chickenCoop.draw(this.ctx);
             }
             girl.draw(this.ctx);
-            speechBubble.draw(this.ctx);
+            girl.speechBubble.draw(this.ctx, girl.x, girl.y);
+            chickens.list.forEach(chicken => {
+                chicken.speechBubble.draw(this.ctx, chicken.x, chicken.y);
+            });
         },
 
         checkSceneTransition: function() {
@@ -147,7 +150,41 @@
             ctx.drawImage(game.images.girl.img, this.x, this.y, this.width, this.height);
         },
 
-        interactWithChickens: function() {
+        speechBubble: {
+            visible: false,
+            duration: 2000,
+            startTime: 0,
+            text: '',
+            show: function(text) {
+                this.text = text;
+                this.visible = true;
+                this.startTime = Date.now();
+            },
+            draw: function(ctx, x, y) {
+                if (this.visible) {
+                    const currentTime = Date.now();
+                    if (currentTime - this.startTime < this.duration) {
+                        ctx.fillStyle = 'white';
+                        ctx.beginPath();
+                        ctx.moveTo(x + girl.width / 2, y - 10);
+                        ctx.lineTo(x + girl.width / 2 - 5, y - 20);
+                        ctx.lineTo(x + girl.width / 2 + 5, y - 20);
+                        ctx.fill();
+                        
+                        ctx.beginPath();
+                        ctx.ellipse(x + girl.width / 2, y - 50, 40, 30, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        
+                        ctx.fillStyle = 'black';
+                        ctx.font = '16px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(this.text, x + girl.width / 2, y - 45);
+                    } else {
+                        this.visible = false;
+                    }
+                }
+            }
+        },
             if (!this.carryingChicken) {
                 chickens.list.forEach(chicken => {
                     if (!chicken.carried &&
@@ -157,15 +194,51 @@
                         this.y + this.height > chicken.y) {
                         chicken.carried = true;
                         this.carryingChicken = true;
-                        speechBubble.show('Got you!');
+                        this.speechBubble.show('Got you!');
                     }
-                });
+                    speechBubble: {
+                        visible: false,
+                        duration: 2000,
+                        startTime: 0,
+                        text: '',
+                        show: function(text) {
+                            this.text = text;
+                            this.visible = true;
+                            this.startTime = Date.now();
+                        },
+                        draw: function(ctx, x, y) {
+                            if (this.visible) {
+                                const currentTime = Date.now();
+                                if (currentTime - this.startTime < this.duration) {
+                                    ctx.fillStyle = 'white';
+                                    ctx.beginPath();
+                                    ctx.moveTo(x + 25, y - 10);
+                                    ctx.lineTo(x + 20, y - 20);
+                                    ctx.lineTo(x + 30, y - 20);
+                                    ctx.fill();
+                                    
+                                    ctx.beginPath();
+                                    ctx.ellipse(x + 25, y - 50, 40, 30, 0, 0, Math.PI * 2);
+                                    ctx.fill();
+                                    
+                                    ctx.fillStyle = 'black';
+                                    ctx.font = '16px Arial';
+                                    ctx.textAlign = 'center';
+                                    ctx.fillText(this.text, x + 25, y - 45);
+                                } else {
+                                    this.visible = false;
+                                }
+                            }
+                        }
+                    }
+                };
+                this.list.push(chicken);
             } else {
                 chickens.list.forEach(chicken => {
                     if (chicken.carried) {
                         chicken.carried = false;
                         this.carryingChicken = false;
-                        speechBubble.show('Off you go!');
+                        this.speechBubble.show('Off you go!');
                     }
                 });
             }
@@ -218,7 +291,7 @@
         list: [],
         init: function() {
             for (let i = 0; i < 3; i++) {
-                this.list.push({
+                const chicken = {
                     x: Math.random() * (game.canvas.width - 50),
                     y: Math.random() * (game.canvas.height - 50),
                     width: 50,
@@ -242,7 +315,7 @@
                     }
 
                     if (Date.now() - chicken.lastCluck > 5000 + Math.random() * 5000) {
-                        speechBubble.show('Cluck!', chicken.x + chicken.width / 2, chicken.y - 10);
+                        chicken.speechBubble.show('Cluck!');
                         chicken.lastCluck = Date.now();
                     }
                 } else {
@@ -361,43 +434,6 @@
         }
     };
 
-    const speechBubble = {
-        visible: false,
-        duration: 2000,
-        startTime: 0,
-        text: '',
-
-        show: function(text) {
-            this.text = text;
-            this.visible = true;
-            this.startTime = Date.now();
-        },
-
-        draw: function(ctx) {
-            if (this.visible) {
-                const currentTime = Date.now();
-                if (currentTime - this.startTime < this.duration) {
-                    ctx.fillStyle = 'white';
-                    ctx.beginPath();
-                    ctx.moveTo(girl.x + girl.width / 2, girl.y - 10);
-                    ctx.lineTo(girl.x + girl.width / 2 - 5, girl.y - 20);
-                    ctx.lineTo(girl.x + girl.width / 2 + 5, girl.y - 20);
-                    ctx.fill();
-                    
-                    ctx.beginPath();
-                    ctx.ellipse(girl.x + girl.width / 2, girl.y - 50, 40, 30, 0, 0, Math.PI * 2);
-                    ctx.fill();
-                    
-                    ctx.fillStyle = 'black';
-                    ctx.font = '16px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(this.text, girl.x + girl.width / 2, girl.y - 45);
-                } else {
-                    this.visible = false;
-                }
-            }
-        }
-    };
 
     const input = {
         rightPressed: false,
