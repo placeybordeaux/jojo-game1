@@ -107,15 +107,33 @@
         }
     };
 
-    const girl = {
-        x: 100,
-        y: 300,
-        width: 50,
-        height: 100,
-        speed: 5,
-        carryingChicken: false,
-        
-        move: function() {
+    class Character {
+        constructor(x, y, width, height, speed, image) {
+            this.x = x;
+            this.y = y;
+            this.width = width;
+            this.height = height;
+            this.speed = speed;
+            this.image = image;
+        }
+
+        move(dx, dy) {
+            this.x += dx;
+            this.y += dy;
+        }
+
+        draw(ctx) {
+            ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
+        }
+    }
+
+    class Girl extends Character {
+        constructor(x, y, width, height, speed, image) {
+            super(x, y, width, height, speed, image);
+            this.carryingChicken = false;
+        }
+
+        move() {
             let dx = 0;
             let dy = 0;
 
@@ -139,15 +157,10 @@
                 dy *= factor;
             }
 
-            this.x += dx;
-            this.y += dy;
-        },
+            super.move(dx, dy);
+        }
 
-        draw: function(ctx) {
-            ctx.drawImage(game.images.girl.img, this.x, this.y, this.width, this.height);
-        },
-
-        interactWithChickens: function() {
+        interactWithChickens() {
             if (!this.carryingChicken) {
                 chickens.list.forEach(chicken => {
                     if (!chicken.carried &&
@@ -170,7 +183,9 @@
                 });
             }
         }
-    };
+    }
+
+    const girl = new Girl(100, 300, 50, 100, 5, game.images.girl.img);
 
     const orangeTree = {
         x: 200,
@@ -218,7 +233,36 @@
         list: [],
         init: function() {
             for (let i = 0; i < 3; i++) {
-                this.list.push({
+                class Chicken extends Character {
+                    constructor(x, y, width, height, speed, image) {
+                        super(x, y, width, height, speed, image);
+                        this.direction = Math.random() * Math.PI * 2;
+                        this.lastCluck = 0;
+                        this.carried = false;
+                    }
+
+                    update() {
+                        if (!this.carried) {
+                            this.x += Math.cos(this.direction) * this.speed;
+                            this.y += Math.sin(this.direction) * this.speed;
+
+                            if (this.x < 0 || this.x > game.canvas.width - this.width ||
+                                this.y < 0 || this.y > game.canvas.height - this.height) {
+                                this.direction = Math.random() * Math.PI * 2;
+                            }
+
+                            if (Date.now() - this.lastCluck > 5000 + Math.random() * 5000) {
+                                speechBubble.show('Cluck!', this.x, this.y);
+                                this.lastCluck = Date.now();
+                            }
+                        } else {
+                            this.x = girl.x;
+                            this.y = girl.y - this.height;
+                        }
+                    }
+                }
+
+                this.list.push(new Chicken(
                     x: Math.random() * (game.canvas.width - 50),
                     y: Math.random() * (game.canvas.height - 50),
                     width: 50,
