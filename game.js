@@ -198,8 +198,8 @@
                         this.carryingChicken = true;
                         this.speechBubble.show('Got you!');
                     }
-                }
-            });
+                };
+                this.list.push(chicken);
             } else {
                 chickens.list.forEach(chicken => {
                     if (chicken.carried) {
@@ -207,8 +207,7 @@
                         this.carryingChicken = false;
                         this.speechBubble.show('Off you go!');
                     }
-                };
-                this.list.push(chicken);
+                });
             }
         },
     };
