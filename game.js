@@ -198,42 +198,8 @@
                         this.carryingChicken = true;
                         this.speechBubble.show('Got you!');
                     }
-                    speechBubble: {
-                        visible: false,
-                        duration: 2000,
-                        startTime: 0,
-                        text: '',
-                        show: function(text) {
-                            this.text = text;
-                            this.visible = true;
-                            this.startTime = Date.now();
-                        },
-                        draw: function(ctx, x, y) {
-                            if (this.visible) {
-                                const currentTime = Date.now();
-                                if (currentTime - this.startTime < this.duration) {
-                                    ctx.fillStyle = 'white';
-                                    ctx.beginPath();
-                                    ctx.moveTo(x + 25, y - 10);
-                                    ctx.lineTo(x + 20, y - 20);
-                                    ctx.lineTo(x + 30, y - 20);
-                                    ctx.fill();
-                                    
-                                    ctx.beginPath();
-                                    ctx.ellipse(x + 25, y - 50, 40, 30, 0, 0, Math.PI * 2);
-                                    ctx.fill();
-                                    
-                                    ctx.fillStyle = 'black';
-                                    ctx.font = '16px Arial';
-                                    ctx.textAlign = 'center';
-                                    ctx.fillText(this.text, x + 25, y - 45);
-                                } else {
-                                    this.visible = false;
-                                }
-                            }
-                        }
-                    }
-                }
+                };
+                this.list.push(chicken);
             } else {
                 chickens.list.forEach(chicken => {
                     if (chicken.carried) {
@@ -241,8 +207,7 @@
                         this.carryingChicken = false;
                         this.speechBubble.show('Off you go!');
                     }
-                };
-                this.list.push(chicken);
+                });
             }
         },
     };
