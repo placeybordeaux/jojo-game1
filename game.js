@@ -242,7 +242,7 @@
                     }
 
                     if (Date.now() - chicken.lastCluck > 5000 + Math.random() * 5000) {
-                        speechBubble.show('Cluck!', chicken.x, chicken.y);
+                        speechBubble.show('Cluck!', chicken.x + chicken.width / 2, chicken.y - 10);
                         chicken.lastCluck = Date.now();
                     }
                 } else {
