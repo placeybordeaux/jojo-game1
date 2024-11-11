@@ -185,6 +185,8 @@
                 }
             }
         },
+
+        interactWithChickens: function() {
             if (!this.carryingChicken) {
                 chickens.list.forEach(chicken => {
                     if (!chicken.carried &&
@@ -243,6 +245,16 @@
                 });
             }
         }
+                chickens.list.forEach(chicken => {
+                    if (chicken.carried) {
+                        chicken.carried = false;
+                        this.carryingChicken = false;
+                        this.speechBubble.show('Off you go!');
+                    }
+                };
+                this.list.push(chicken);
+            }
+        }
     };
 
     const orangeTree = {
@@ -272,7 +284,7 @@
                     girl.y < orange.y + orange.height &&
                     girl.y + girl.height > orange.y) {
                     orange.picked = true;
-                    speechBubble.show('Yum! Fresh orange!');
+                    girl.speechBubble.show('Yum! Fresh orange!');
                 }
             });
         },
