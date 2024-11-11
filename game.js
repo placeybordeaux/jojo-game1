@@ -367,8 +367,10 @@
         startTime: 0,
         text: '',
 
-        show: function(text) {
+        show: function(text, x, y) {
             this.text = text;
+            this.x = x;
+            this.y = y;
             this.visible = true;
             this.startTime = Date.now();
         },
@@ -379,19 +381,19 @@
                 if (currentTime - this.startTime < this.duration) {
                     ctx.fillStyle = 'white';
                     ctx.beginPath();
-                    ctx.moveTo(girl.x + girl.width / 2, girl.y - 10);
-                    ctx.lineTo(girl.x + girl.width / 2 - 5, girl.y - 20);
-                    ctx.lineTo(girl.x + girl.width / 2 + 5, girl.y - 20);
+                    ctx.moveTo(this.x, this.y - 10);
+                    ctx.lineTo(this.x - 5, this.y - 20);
+                    ctx.lineTo(this.x + 5, this.y - 20);
                     ctx.fill();
                     
                     ctx.beginPath();
-                    ctx.ellipse(girl.x + girl.width / 2, girl.y - 50, 40, 30, 0, 0, Math.PI * 2);
+                    ctx.ellipse(this.x, this.y - 50, 40, 30, 0, 0, Math.PI * 2);
                     ctx.fill();
                     
                     ctx.fillStyle = 'black';
                     ctx.font = '16px Arial';
                     ctx.textAlign = 'center';
-                    ctx.fillText(this.text, girl.x + girl.width / 2, girl.y - 45);
+                    ctx.fillText(this.text, this.x, this.y - 45);
                 } else {
                     this.visible = false;
                 }
