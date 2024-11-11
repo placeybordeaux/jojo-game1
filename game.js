@@ -263,15 +263,13 @@
                 }
 
                 this.list.push(new Chicken(
-                    x: Math.random() * (game.canvas.width - 50),
-                    y: Math.random() * (game.canvas.height - 50),
-                    width: 50,
-                    height: 50,
-                    speed: 1,
-                    direction: Math.random() * Math.PI * 2,
-                    lastCluck: 0,
-                    carried: false
-                });
+                    Math.random() * (game.canvas.width - 50),
+                    Math.random() * (game.canvas.height - 50),
+                    50,
+                    50,
+                    1,
+                    game.images.chicken.img
+                ));
             }
         },
         update: function() {
