@@ -242,7 +242,7 @@
                     }
 
                     if (Date.now() - chicken.lastCluck > 5000 + Math.random() * 5000) {
-                        speechBubble.show('Cluck!', chicken.x, chicken.y);
+                        speechBubble.showForChicken('Cluck!', chicken);
                         chicken.lastCluck = Date.now();
                     }
                 } else {
@@ -366,32 +366,45 @@
         duration: 2000,
         startTime: 0,
         text: '',
+        speaker: null,
 
         show: function(text) {
             this.text = text;
             this.visible = true;
             this.startTime = Date.now();
+            this.speaker = girl;
+        },
+
+        showForChicken: function(text, chicken) {
+            this.text = text;
+            this.visible = true;
+            this.startTime = Date.now();
+            this.speaker = chicken;
         },
 
         draw: function(ctx) {
-            if (this.visible) {
+            if (this.visible && this.speaker) {
                 const currentTime = Date.now();
                 if (currentTime - this.startTime < this.duration) {
+                    const centerX = this.speaker.x + this.speaker.width / 2;
+                    const bubbleY = this.speaker.y - 50;
+                    const textY = this.speaker.y - 45;
+                    
                     ctx.fillStyle = 'white';
                     ctx.beginPath();
-                    ctx.moveTo(girl.x + girl.width / 2, girl.y - 10);
-                    ctx.lineTo(girl.x + girl.width / 2 - 5, girl.y - 20);
-                    ctx.lineTo(girl.x + girl.width / 2 + 5, girl.y - 20);
+                    ctx.moveTo(centerX, bubbleY + 40);
+                    ctx.lineTo(centerX - 5, bubbleY + 30);
+                    ctx.lineTo(centerX + 5, bubbleY + 30);
                     ctx.fill();
                     
                     ctx.beginPath();
-                    ctx.ellipse(girl.x + girl.width / 2, girl.y - 50, 40, 30, 0, 0, Math.PI * 2);
+                    ctx.ellipse(centerX, bubbleY, 40, 30, 0, 0, Math.PI * 2);
                     ctx.fill();
                     
                     ctx.fillStyle = 'black';
                     ctx.font = '16px Arial';
                     ctx.textAlign = 'center';
-                    ctx.fillText(this.text, girl.x + girl.width / 2, girl.y - 45);
+                    ctx.fillText(this.text, centerX, textY);
                 } else {
                     this.visible = false;
                 }
