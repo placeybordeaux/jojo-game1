@@ -60,7 +60,12 @@
                 chickenCoop.checkChickenDelivery();
             } else if (this.currentScene === 'kitchen') {
                 kitchen.update();
+            } else if (this.currentScene === 'bathroom') {
+                bathroom.update();
             }
+            
+            // Update girl's hygiene
+            this.updateHygiene();
         },
 
         draw: function() {
@@ -69,6 +74,7 @@
                 this.ctx.drawImage(this.images.house.img, 0, 0, this.canvas.width, this.canvas.height);
                 door.draw(this.ctx);  // Draw the door
                 kitchenDoor.draw(this.ctx);  // Draw the kitchen door
+                bathroomDoor.draw(this.ctx);  // Draw the bathroom door
                 items.apple.draw(this.ctx);
                 items.cookie.draw(this.ctx);
             } else if (this.currentScene === 'outdoor') {
@@ -78,6 +84,8 @@
                 chickenCoop.draw(this.ctx);
             } else if (this.currentScene === 'kitchen') {
                 kitchen.draw(this.ctx);
+            } else if (this.currentScene === 'bathroom') {
+                bathroom.draw(this.ctx);
             }
             girl.draw(this.ctx);
             speechBubble.draw(this.ctx);
@@ -106,10 +114,37 @@
             } else if (this.currentScene === 'outdoor' && girl.x < 0) {
                 this.currentScene = 'indoor';
                 girl.x = this.canvas.width - girl.width - 50;  // Start a bit inside the house
+            } else if (this.currentScene === 'indoor' &&
+                girl.x + girl.width > bathroomDoor.x &&
+                girl.x < bathroomDoor.x + bathroomDoor.width &&
+                girl.y + girl.height > bathroomDoor.y &&
+                girl.y < bathroomDoor.y + bathroomDoor.height &&
+                input.spacePressed) {
+                this.currentScene = 'bathroom';
+                girl.x = 50;
+                girl.y = 300;
+                input.spacePressed = false;
             } else if (this.currentScene === 'kitchen' && girl.x < 0) {
                 this.currentScene = 'indoor';
                 girl.x = kitchenDoor.x - girl.width - 10;
                 girl.y = kitchenDoor.y + 20;
+            } else if (this.currentScene === 'bathroom' && girl.x < 0) {
+                this.currentScene = 'indoor';
+                girl.x = bathroomDoor.x - girl.width - 10;
+                girl.y = bathroomDoor.y + 20;
+            }
+        },
+
+        updateHygiene: function() {
+            // Slowly increase bathroom need over time
+            if (girl.needsBathroom < 100) {
+                girl.needsBathroom += 0.02; // Takes about 5 minutes to get urgent
+            }
+            
+            // Get dirty when interacting with chickens
+            if (this.currentScene === 'outdoor' && girl.carryingChicken) {
+                girl.dirtiness += 0.1;
+                if (girl.dirtiness > 100) girl.dirtiness = 100;
             }
         },
     };
@@ -142,6 +177,22 @@
         }
     };
 
+    const bathroomDoor = {
+        x: 300,
+        y: 280,
+        width: 60,
+        height: 120,
+        
+        draw: function(ctx) {
+            ctx.fillStyle = 'lightblue';
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+            ctx.fillStyle = 'darkblue';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('BATHROOM', this.x + this.width/2, this.y + this.height/2);
+        }
+    };
+
     const girl = {
         x: 100,
         y: 300,
@@ -149,6 +200,9 @@
         height: 100,
         speed: 5,
         carryingChicken: false,
+        dirtiness: 0, // 0-100, 100 being very dirty
+        needsBathroom: 0, // 0-100, 100 being urgent
+        handsClean: true,
         
         move: function() {
             let dx = 0;
@@ -530,8 +584,9 @@
                     }
                 });
             }
-            // Check mixing bowl interaction
-            else if (girl.x < this.mixingBowl.x + this.mixingBowl.width &&
+            
+            // Check mixing bowl interaction (separate from ingredient pickup)
+            if (girl.x < this.mixingBowl.x + this.mixingBowl.width &&
                 girl.x + girl.width > this.mixingBowl.x &&
                 girl.y < this.mixingBowl.y + this.mixingBowl.height &&
                 girl.y + girl.height > this.mixingBowl.y) {
@@ -540,23 +595,33 @@
                     this.mixingBowl.ingredients.push(this.girl.carriedIngredient.name);
                     speechBubble.show(`Added ${this.girl.carriedIngredient.name} to bowl!`);
                     this.girl.carriedIngredient = null;
-                } else if (!this.mixingBowl.mixed && this.mixingBowl.ingredients.length >= this.waffleRecipe.ingredients.length) {
-                    // Check if all required ingredients are in bowl
-                    const hasAllIngredients = this.waffleRecipe.ingredients.every(ing => 
-                        this.mixingBowl.ingredients.includes(ing)
-                    );
-                    if (hasAllIngredients) {
-                        this.mixingBowl.mixed = true;
-                        speechBubble.show('Mixed the batter!');
+                    return; // Exit after adding ingredient
+                } 
+                
+                // Try to mix if not carrying anything
+                if (!this.girl.carriedIngredient && !this.mixingBowl.mixed) {
+                    if (this.mixingBowl.ingredients.length >= this.waffleRecipe.ingredients.length) {
+                        const hasAllIngredients = this.waffleRecipe.ingredients.every(ing => 
+                            this.mixingBowl.ingredients.includes(ing)
+                        );
+                        
+                        if (hasAllIngredients) {
+                            this.mixingBowl.mixed = true;
+                            speechBubble.show('Mixed the batter!');
+                            return;
+                        } else {
+                            speechBubble.show('Missing ingredients for waffle batter!');
+                            return;
+                        }
                     } else {
-                        speechBubble.show('Missing ingredients for waffle batter!');
+                        speechBubble.show(`Need ${this.waffleRecipe.ingredients.length - this.mixingBowl.ingredients.length} more ingredients!`);
+                        return;
                     }
-                } else if (this.mixingBowl.ingredients.length > 0 && this.mixingBowl.ingredients.length < this.waffleRecipe.ingredients.length) {
-                    speechBubble.show(`Need ${this.waffleRecipe.ingredients.length - this.mixingBowl.ingredients.length} more ingredients!`);
                 }
             }
+            
             // Check waffle maker interaction
-            else if (girl.x < this.waffleMaker.x + this.waffleMaker.width &&
+            if (girl.x < this.waffleMaker.x + this.waffleMaker.width &&
                 girl.x + girl.width > this.waffleMaker.x &&
                 girl.y < this.waffleMaker.y + this.waffleMaker.height &&
                 girl.y + girl.height > this.waffleMaker.y) {
@@ -698,6 +763,297 @@
         }
     };
 
+    const bathroom = {
+        toilet: {
+            x: 150, y: 150, width: 60, height: 80,
+            inUse: false
+        },
+        
+        bathtub: {
+            x: 400, y: 100, width: 120, height: 80,
+            hasWater: false,
+            temperature: 'cold' // cold, warm, hot
+        },
+        
+        sink: {
+            x: 250, y: 200, width: 80, height: 40,
+            hasWater: false,
+            hasSoap: true
+        },
+
+        toiletPaper: {
+            x: 100, y: 120, width: 30, height: 40,
+            rolls: 3 // Number of rolls available
+        },
+        
+        girl: {
+            peeing: false,
+            peeProgress: 0,
+            bathing: false,
+            bathProgress: 0,
+            washingHands: false,
+            washProgress: 0,
+            usingToiletPaper: false,
+            wipingProgress: 0
+        },
+
+        init: function() {
+            this.toilet.inUse = false;
+            this.bathtub.hasWater = false;
+            this.bathtub.temperature = 'cold';
+            this.sink.hasWater = false;
+            this.toiletPaper.rolls = 3;
+            this.girl.peeing = false;
+            this.girl.peeProgress = 0;
+            this.girl.bathing = false;
+            this.girl.bathProgress = 0;
+            this.girl.washingHands = false;
+            this.girl.washProgress = 0;
+            this.girl.usingToiletPaper = false;
+            this.girl.wipingProgress = 0;
+        },
+
+        update: function() {
+            // Update peeing progress
+            if (this.girl.peeing && input.spacePressed) {
+                this.girl.peeProgress += 2;
+                if (this.girl.peeProgress >= 100) {
+                    this.girl.peeing = false;
+                    this.girl.peeProgress = 0;
+                    girl.needsBathroom = 0;
+                    girl.handsClean = false; // Need to wash hands after bathroom
+                    speechBubble.show('Ahh, much better! Better wash my hands.');
+                }
+            } else if (this.girl.peeing) {
+                // Stop peeing if space not held
+                this.girl.peeing = false;
+                this.girl.peeProgress = 0;
+                speechBubble.show('Hold space to finish!');
+            }
+
+            // Update bathing progress
+            if (this.girl.bathing && input.spacePressed && this.bathtub.hasWater) {
+                this.girl.bathProgress += 1;
+                if (this.girl.bathProgress >= 200) { // Takes longer to get clean
+                    this.girl.bathing = false;
+                    this.girl.bathProgress = 0;
+                    girl.dirtiness = 0;
+                    this.bathtub.hasWater = false; // Drain tub
+                    speechBubble.show('All clean!');
+                }
+            } else if (this.girl.bathing && !this.bathtub.hasWater) {
+                this.girl.bathing = false;
+                this.girl.bathProgress = 0;
+                speechBubble.show('Need water in the tub first!');
+            }
+
+            // Update hand washing progress
+            if (this.girl.washingHands && input.spacePressed && this.sink.hasWater && this.sink.hasSoap) {
+                this.girl.washProgress += 3;
+                if (this.girl.washProgress >= 100) {
+                    this.girl.washingHands = false;
+                    this.girl.washProgress = 0;
+                    girl.handsClean = true;
+                    this.sink.hasWater = false; // Turn off water
+                    speechBubble.show('Hands are clean!');
+                }
+            } else if (this.girl.washingHands) {
+                if (!this.sink.hasWater) {
+                    speechBubble.show('Need to turn on water!');
+                } else if (!this.sink.hasSoap) {
+                    speechBubble.show('Need soap!');
+                }
+                this.girl.washingHands = false;
+                this.girl.washProgress = 0;
+            }
+        },
+
+        interact: function() {
+            // Toilet interaction
+            if (girl.x < this.toilet.x + this.toilet.width &&
+                girl.x + girl.width > this.toilet.x &&
+                girl.y < this.toilet.y + this.toilet.height &&
+                girl.y + girl.height > this.toilet.y) {
+                
+                if (girl.needsBathroom > 20) {
+                    this.girl.peeing = true;
+                    this.girl.peeProgress = 0;
+                    speechBubble.show('Hold space to pee!');
+                } else {
+                    speechBubble.show("I don't need to go right now.");
+                }
+                return;
+            }
+
+            // Bathtub interaction
+            if (girl.x < this.bathtub.x + this.bathtub.width &&
+                girl.x + girl.width > this.bathtub.x &&
+                girl.y < this.bathtub.y + this.bathtub.height &&
+                girl.y + girl.height > this.bathtub.y) {
+                
+                if (!this.bathtub.hasWater) {
+                    this.bathtub.hasWater = true;
+                    this.bathtub.temperature = 'warm';
+                    speechBubble.show('Filling tub with warm water...');
+                } else if (girl.dirtiness > 30) {
+                    this.girl.bathing = true;
+                    this.girl.bathProgress = 0;
+                    speechBubble.show('Hold space to bathe!');
+                } else {
+                    speechBubble.show("I'm already clean enough!");
+                }
+                return;
+            }
+
+            // Sink interaction
+            if (girl.x < this.sink.x + this.sink.width &&
+                girl.x + girl.width > this.sink.x &&
+                girl.y < this.sink.y + this.sink.height &&
+                girl.y + girl.height > this.sink.y) {
+                
+                if (!girl.handsClean) {
+                    if (!this.sink.hasWater) {
+                        this.sink.hasWater = true;
+                        speechBubble.show('Turned on water. Press space again to wash hands!');
+                    } else {
+                        this.girl.washingHands = true;
+                        this.girl.washProgress = 0;
+                        speechBubble.show('Hold space to wash hands with soap!');
+                    }
+                } else {
+                    speechBubble.show('My hands are already clean!');
+                }
+                return;
+            }
+        },
+
+        draw: function(ctx) {
+            // Draw bathroom background
+            ctx.fillStyle = '#E6F3FF';
+            ctx.fillRect(0, 0, game.canvas.width, game.canvas.height);
+            
+            // Draw tile pattern
+            ctx.strokeStyle = '#B3D9FF';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < game.canvas.width; x += 40) {
+                for (let y = 0; y < game.canvas.height; y += 40) {
+                    ctx.strokeRect(x, y, 40, 40);
+                }
+            }
+
+            // Draw toilet
+            ctx.fillStyle = 'white';
+            ctx.fillRect(this.toilet.x, this.toilet.y, this.toilet.width, this.toilet.height);
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(this.toilet.x, this.toilet.y, this.toilet.width, this.toilet.height);
+            
+            // Toilet seat
+            ctx.beginPath();
+            ctx.ellipse(this.toilet.x + this.toilet.width/2, this.toilet.y + 20, 25, 15, 0, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            ctx.fillStyle = 'black';
+            ctx.font = '10px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('TOILET', this.toilet.x + this.toilet.width/2, this.toilet.y - 5);
+
+            // Draw bathtub
+            ctx.fillStyle = this.bathtub.hasWater ? '#ADD8E6' : 'white';
+            ctx.fillRect(this.bathtub.x, this.bathtub.y, this.bathtub.width, this.bathtub.height);
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(this.bathtub.x, this.bathtub.y, this.bathtub.width, this.bathtub.height);
+            
+            ctx.fillStyle = 'black';
+            ctx.fillText('BATHTUB', this.bathtub.x + this.bathtub.width/2, this.bathtub.y - 5);
+
+            // Draw sink
+            ctx.fillStyle = 'white';
+            ctx.fillRect(this.sink.x, this.sink.y, this.sink.width, this.sink.height);
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(this.sink.x, this.sink.y, this.sink.width, this.sink.height);
+            
+            // Faucet
+            ctx.fillStyle = '#C0C0C0';
+            ctx.fillRect(this.sink.x + this.sink.width/2 - 5, this.sink.y - 10, 10, 10);
+            
+            // Water stream if on
+            if (this.sink.hasWater) {
+                ctx.strokeStyle = '#ADD8E6';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(this.sink.x + this.sink.width/2, this.sink.y - 5);
+                ctx.lineTo(this.sink.x + this.sink.width/2, this.sink.y + 10);
+                ctx.stroke();
+            }
+            
+            ctx.fillStyle = 'black';
+            ctx.fillText('SINK', this.sink.x + this.sink.width/2, this.sink.y - 15);
+
+            // Draw progress bars
+            if (this.girl.peeing && this.girl.peeProgress > 0) {
+                this.drawProgressBar(ctx, 50, 50, this.girl.peeProgress, 'Peeing...');
+            }
+            if (this.girl.bathing && this.girl.bathProgress > 0) {
+                this.drawProgressBar(ctx, 50, 80, this.girl.bathProgress/2, 'Bathing...'); // /2 because bath takes 200
+            }
+            if (this.girl.washingHands && this.girl.washProgress > 0) {
+                this.drawProgressBar(ctx, 50, 110, this.girl.washProgress, 'Washing hands...');
+            }
+
+            // Draw hygiene status
+            this.drawHygieneStatus(ctx);
+        },
+
+        drawProgressBar: function(ctx, x, y, progress, label) {
+            ctx.fillStyle = 'white';
+            ctx.fillRect(x, y, 200, 20);
+            ctx.strokeStyle = 'black';
+            ctx.strokeRect(x, y, 200, 20);
+            
+            ctx.fillStyle = 'lightblue';
+            ctx.fillRect(x, y, (progress / 100) * 200, 20);
+            
+            ctx.fillStyle = 'black';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText(label, x, y - 5);
+        },
+
+        drawHygieneStatus: function(ctx) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.fillRect(600, 50, 180, 150);
+            ctx.strokeStyle = '#333';
+            ctx.strokeRect(600, 50, 180, 150);
+            
+            ctx.fillStyle = 'black';
+            ctx.font = '14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('HYGIENE STATUS', 690, 70);
+            
+            ctx.font = '10px Arial';
+            ctx.textAlign = 'left';
+            
+            // Dirtiness
+            ctx.fillStyle = girl.dirtiness > 50 ? 'red' : (girl.dirtiness > 25 ? 'orange' : 'green');
+            ctx.fillText(`Cleanliness: ${Math.max(0, 100 - girl.dirtiness)}%`, 610, 90);
+            
+            // Bathroom need
+            ctx.fillStyle = girl.needsBathroom > 75 ? 'red' : (girl.needsBathroom > 50 ? 'orange' : 'green');
+            ctx.fillText(`Bathroom need: ${Math.round(girl.needsBathroom)}%`, 610, 110);
+            
+            // Hand cleanliness
+            ctx.fillStyle = girl.handsClean ? 'green' : 'red';
+            ctx.fillText(`Hands: ${girl.handsClean ? 'Clean' : 'Dirty'}`, 610, 130);
+            
+            // Soap availability
+            ctx.fillStyle = this.sink.hasSoap ? 'green' : 'red';
+            ctx.fillText(`Soap: ${this.sink.hasSoap ? 'Available' : 'Empty'}`, 610, 150);
+        }
+    };
+
     const input = {
         rightPressed: false,
         leftPressed: false,
@@ -747,6 +1103,8 @@
                 girl.interactWithChickens();
             } else if (game.currentScene === 'kitchen') {
                 kitchen.interact();
+            } else if (game.currentScene === 'bathroom') {
+                bathroom.interact();
             }
         }
     };
@@ -757,4 +1115,5 @@
     orangeTree.init();
     chickens.init();
     kitchen.init();
+    bathroom.init();
 })();
