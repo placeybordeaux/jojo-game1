@@ -821,14 +821,33 @@
                     this.girl.peeing = false;
                     this.girl.peeProgress = 0;
                     girl.needsBathroom = 0;
-                    girl.handsClean = false; // Need to wash hands after bathroom
-                    speechBubble.show('Ahh, much better! Better wash my hands.');
+                    speechBubble.show('Done! Now I need toilet paper.');
                 }
             } else if (this.girl.peeing) {
                 // Stop peeing if space not held
                 this.girl.peeing = false;
                 this.girl.peeProgress = 0;
                 speechBubble.show('Hold space to finish!');
+            }
+
+            // Update toilet paper wiping progress
+            if (this.girl.usingToiletPaper && input.spacePressed && this.toiletPaper.rolls > 0) {
+                this.girl.wipingProgress += 3;
+                if (this.girl.wipingProgress >= 100) {
+                    this.girl.usingToiletPaper = false;
+                    this.girl.wipingProgress = 0;
+                    this.toiletPaper.rolls--;
+                    girl.handsClean = false; // Need to wash hands after using toilet paper
+                    speechBubble.show('All clean! Better wash my hands now.');
+                }
+            } else if (this.girl.usingToiletPaper && this.toiletPaper.rolls <= 0) {
+                this.girl.usingToiletPaper = false;
+                this.girl.wipingProgress = 0;
+                speechBubble.show('Oh no! No toilet paper left!');
+            } else if (this.girl.usingToiletPaper) {
+                this.girl.usingToiletPaper = false;
+                this.girl.wipingProgress = 0;
+                speechBubble.show('Hold space to use toilet paper!');
             }
 
             // Update bathing progress
