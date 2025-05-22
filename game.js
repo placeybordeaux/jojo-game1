@@ -461,43 +461,62 @@
 
     const kitchen = {
         ingredients: [
-            { name: 'Flour', x: 100, y: 100, width: 40, height: 40, collected: false, color: '#F5F5DC' },
-            { name: 'Eggs', x: 200, y: 100, width: 40, height: 40, collected: false, color: '#FFFACD' },
-            { name: 'Milk', x: 300, y: 100, width: 40, height: 40, collected: false, color: '#FFFFFF' },
-            { name: 'Sugar', x: 400, y: 100, width: 40, height: 40, collected: false, color: '#F0F8FF' },
-            { name: 'Butter', x: 500, y: 100, width: 40, height: 40, collected: false, color: '#FFFACD' }
+            { name: 'Flour', x: 100, y: 80, width: 40, height: 40, collected: false, color: '#F5F5DC' },
+            { name: 'Eggs', x: 200, y: 80, width: 40, height: 40, collected: false, color: '#FFFACD' },
+            { name: 'Milk', x: 300, y: 80, width: 40, height: 40, collected: false, color: '#FFFFFF' },
+            { name: 'Sugar', x: 400, y: 80, width: 40, height: 40, collected: false, color: '#F0F8FF' }
         ],
         
-        cookingStation: {
-            x: 300, y: 250, width: 80, height: 60,
-            ingredients: [], // ingredients brought here
-            recipes: [
-                { name: 'Pancakes', ingredients: ['Flour', 'Eggs', 'Milk'], completed: false },
-                { name: 'Cake', ingredients: ['Flour', 'Eggs', 'Sugar', 'Butter'], completed: false },
-                { name: 'Cookies', ingredients: ['Flour', 'Sugar', 'Butter'], completed: false }
-            ],
-            currentRecipe: 0
+        mixingBowl: {
+            x: 150, y: 200, width: 60, height: 40,
+            ingredients: [],
+            mixed: false
+        },
+
+        waffleMaker: {
+            x: 400, y: 200, width: 80, height: 60,
+            hasBatter: false,
+            cooking: false,
+            cookTime: 0,
+            cookDuration: 3000, // 3 seconds
+            waffleReady: false
         },
 
         girl: {
             carriedIngredient: null
         },
 
+        waffleRecipe: {
+            name: 'Waffles',
+            ingredients: ['Flour', 'Eggs', 'Milk', 'Sugar'],
+            completed: false
+        },
+
         init: function() {
-            // Reset ingredients and cooking station
             this.ingredients.forEach(ing => ing.collected = false);
-            this.cookingStation.ingredients = [];
-            this.cookingStation.recipes.forEach(recipe => recipe.completed = false);
+            this.mixingBowl.ingredients = [];
+            this.mixingBowl.mixed = false;
+            this.waffleMaker.hasBatter = false;
+            this.waffleMaker.cooking = false;
+            this.waffleMaker.waffleReady = false;
             this.girl.carriedIngredient = null;
+            this.waffleRecipe.completed = false;
         },
 
         update: function() {
-            this.checkIngredientPickup();
-            this.checkIngredientDelivery();
-            this.checkRecipeCompletion();
+            if (this.waffleMaker.cooking) {
+                this.waffleMaker.cookTime += 16; // Assuming 60fps
+                if (this.waffleMaker.cookTime >= this.waffleMaker.cookDuration) {
+                    this.waffleMaker.cooking = false;
+                    this.waffleMaker.waffleReady = true;
+                    this.waffleMaker.hasBatter = false;
+                    speechBubble.show('Waffle is ready!');
+                }
+            }
         },
 
-        checkIngredientPickup: function() {
+        interact: function() {
+            // Check ingredient pickup
             if (!this.girl.carriedIngredient) {
                 this.ingredients.forEach(ingredient => {
                     if (!ingredient.collected &&
@@ -511,35 +530,48 @@
                     }
                 });
             }
-        },
-
-        checkIngredientDelivery: function() {
-            if (this.girl.carriedIngredient &&
-                girl.x < this.cookingStation.x + this.cookingStation.width &&
-                girl.x + girl.width > this.cookingStation.x &&
-                girl.y < this.cookingStation.y + this.cookingStation.height &&
-                girl.y + girl.height > this.cookingStation.y) {
+            // Check mixing bowl interaction
+            else if (girl.x < this.mixingBowl.x + this.mixingBowl.width &&
+                girl.x + girl.width > this.mixingBowl.x &&
+                girl.y < this.mixingBowl.y + this.mixingBowl.height &&
+                girl.y + girl.height > this.mixingBowl.y) {
                 
-                this.cookingStation.ingredients.push(this.girl.carriedIngredient.name);
-                speechBubble.show(`Added ${this.girl.carriedIngredient.name} to station!`);
-                this.girl.carriedIngredient = null;
+                if (this.girl.carriedIngredient) {
+                    this.mixingBowl.ingredients.push(this.girl.carriedIngredient.name);
+                    speechBubble.show(`Added ${this.girl.carriedIngredient.name} to bowl!`);
+                    this.girl.carriedIngredient = null;
+                } else if (!this.mixingBowl.mixed && this.mixingBowl.ingredients.length >= this.waffleRecipe.ingredients.length) {
+                    // Check if all required ingredients are in bowl
+                    const hasAllIngredients = this.waffleRecipe.ingredients.every(ing => 
+                        this.mixingBowl.ingredients.includes(ing)
+                    );
+                    if (hasAllIngredients) {
+                        this.mixingBowl.mixed = true;
+                        speechBubble.show('Mixed the batter!');
+                    } else {
+                        speechBubble.show('Missing ingredients for waffle batter!');
+                    }
+                } else if (this.mixingBowl.ingredients.length > 0 && this.mixingBowl.ingredients.length < this.waffleRecipe.ingredients.length) {
+                    speechBubble.show(`Need ${this.waffleRecipe.ingredients.length - this.mixingBowl.ingredients.length} more ingredients!`);
+                }
             }
-        },
-
-        checkRecipeCompletion: function() {
-            const currentRecipe = this.cookingStation.recipes[this.cookingStation.currentRecipe];
-            if (!currentRecipe.completed) {
-                const hasAllIngredients = currentRecipe.ingredients.every(ing => 
-                    this.cookingStation.ingredients.includes(ing)
-                );
+            // Check waffle maker interaction
+            else if (girl.x < this.waffleMaker.x + this.waffleMaker.width &&
+                girl.x + girl.width > this.waffleMaker.x &&
+                girl.y < this.waffleMaker.y + this.waffleMaker.height &&
+                girl.y + girl.height > this.waffleMaker.y) {
                 
-                if (hasAllIngredients) {
-                    currentRecipe.completed = true;
-                    speechBubble.show(`${currentRecipe.name} completed!`);
-                    // Reset station for next recipe
-                    this.cookingStation.ingredients = [];
-                    // Move to next recipe
-                    this.cookingStation.currentRecipe = (this.cookingStation.currentRecipe + 1) % this.cookingStation.recipes.length;
+                if (this.waffleMaker.waffleReady) {
+                    this.waffleMaker.waffleReady = false;
+                    this.waffleRecipe.completed = true;
+                    speechBubble.show('Got the waffle!');
+                } else if (this.mixingBowl.mixed && !this.waffleMaker.hasBatter && !this.waffleMaker.cooking) {
+                    this.waffleMaker.hasBatter = true;
+                    this.waffleMaker.cooking = true;
+                    this.waffleMaker.cookTime = 0;
+                    this.mixingBowl.ingredients = [];
+                    this.mixingBowl.mixed = false;
+                    speechBubble.show('Cooking waffle...');
                 }
             }
         },
@@ -573,17 +605,47 @@
                 }
             });
 
-            // Draw cooking station
-            ctx.fillStyle = '#8B4513';
-            ctx.fillRect(this.cookingStation.x, this.cookingStation.y, this.cookingStation.width, this.cookingStation.height);
-            ctx.strokeStyle = '#654321';
+            // Draw mixing bowl
+            ctx.fillStyle = this.mixingBowl.mixed ? '#FFE4B5' : '#FFFFFF';
+            ctx.beginPath();
+            ctx.ellipse(this.mixingBowl.x + this.mixingBowl.width/2, this.mixingBowl.y + this.mixingBowl.height/2, 
+                       this.mixingBowl.width/2, this.mixingBowl.height/2, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#8B4513';
             ctx.lineWidth = 3;
-            ctx.strokeRect(this.cookingStation.x, this.cookingStation.y, this.cookingStation.width, this.cookingStation.height);
+            ctx.stroke();
             
-            ctx.fillStyle = 'white';
-            ctx.font = '12px Arial';
+            ctx.fillStyle = 'black';
+            ctx.font = '10px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText('STOVE', this.cookingStation.x + this.cookingStation.width/2, this.cookingStation.y + this.cookingStation.height/2);
+            ctx.fillText('MIXING BOWL', this.mixingBowl.x + this.mixingBowl.width/2, this.mixingBowl.y - 10);
+
+            // Draw waffle maker
+            ctx.fillStyle = this.waffleMaker.cooking ? '#FF4444' : (this.waffleMaker.waffleReady ? '#FFD700' : '#C0C0C0');
+            ctx.fillRect(this.waffleMaker.x, this.waffleMaker.y, this.waffleMaker.width, this.waffleMaker.height);
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(this.waffleMaker.x, this.waffleMaker.y, this.waffleMaker.width, this.waffleMaker.height);
+            
+            // Draw waffle maker grid pattern
+            ctx.strokeStyle = '#666';
+            ctx.lineWidth = 1;
+            for (let i = 1; i < 4; i++) {
+                ctx.beginPath();
+                ctx.moveTo(this.waffleMaker.x + i * this.waffleMaker.width/4, this.waffleMaker.y + 10);
+                ctx.lineTo(this.waffleMaker.x + i * this.waffleMaker.width/4, this.waffleMaker.y + this.waffleMaker.height - 10);
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.moveTo(this.waffleMaker.x + 10, this.waffleMaker.y + i * this.waffleMaker.height/4);
+                ctx.lineTo(this.waffleMaker.x + this.waffleMaker.width - 10, this.waffleMaker.y + i * this.waffleMaker.height/4);
+                ctx.stroke();
+            }
+            
+            ctx.fillStyle = 'black';
+            ctx.font = '10px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('WAFFLE MAKER', this.waffleMaker.x + this.waffleMaker.width/2, this.waffleMaker.y - 10);
 
             // Draw carried ingredient above girl
             if (this.girl.carriedIngredient) {
@@ -594,35 +656,45 @@
                 ctx.strokeRect(girl.x + 10, girl.y - 20, 30, 30);
             }
 
-            // Draw recipe list
+            // Draw waffle recipe status
             ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-            ctx.fillRect(600, 50, 180, 200);
+            ctx.fillRect(550, 50, 220, 180);
             ctx.strokeStyle = '#333';
-            ctx.strokeRect(600, 50, 180, 200);
+            ctx.strokeRect(550, 50, 220, 180);
             
             ctx.fillStyle = 'black';
-            ctx.font = '14px Arial';
+            ctx.font = '16px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText('RECIPES', 690, 70);
+            ctx.fillText('WAFFLE RECIPE', 660, 75);
             
-            ctx.font = '10px Arial';
+            ctx.font = '12px Arial';
             ctx.textAlign = 'left';
-            this.cookingStation.recipes.forEach((recipe, index) => {
-                const y = 90 + index * 50;
-                const isCurrent = index === this.cookingStation.currentRecipe;
-                
-                ctx.fillStyle = recipe.completed ? 'green' : (isCurrent ? 'blue' : 'black');
-                ctx.fillText(`${recipe.name}${recipe.completed ? ' ✓' : ''}`, 610, y);
-                
-                ctx.fillStyle = 'gray';
-                ctx.font = '8px Arial';
-                recipe.ingredients.forEach((ing, i) => {
-                    const hasIngredient = this.cookingStation.ingredients.includes(ing);
-                    ctx.fillStyle = hasIngredient ? 'green' : 'gray';
-                    ctx.fillText(`• ${ing}`, 615, y + 10 + i * 10);
-                });
-                ctx.font = '10px Arial';
+            ctx.fillStyle = this.waffleRecipe.completed ? 'green' : 'blue';
+            ctx.fillText(`${this.waffleRecipe.name}${this.waffleRecipe.completed ? ' ✓' : ''}`, 560, 100);
+            
+            // Show recipe ingredients
+            ctx.fillStyle = 'black';
+            ctx.font = '10px Arial';
+            ctx.fillText('Ingredients needed:', 560, 120);
+            this.waffleRecipe.ingredients.forEach((ing, i) => {
+                const inBowl = this.mixingBowl.ingredients.includes(ing);
+                ctx.fillStyle = inBowl ? 'green' : 'gray';
+                ctx.fillText(`• ${ing}`, 565, 135 + i * 12);
             });
+            
+            // Show mixing bowl status
+            ctx.fillStyle = 'black';
+            ctx.fillText('Mixing Bowl:', 560, 185);
+            if (this.mixingBowl.ingredients.length > 0) {
+                this.mixingBowl.ingredients.forEach((ing, i) => {
+                    ctx.fillStyle = 'blue';
+                    ctx.fillText(`• ${ing}`, 565, 200 + i * 12);
+                });
+            }
+            if (this.mixingBowl.mixed) {
+                ctx.fillStyle = 'green';
+                ctx.fillText('✓ Batter ready!', 565, 200 + this.mixingBowl.ingredients.length * 12);
+            }
         }
     };
 
@@ -673,8 +745,9 @@
                 items.cookie.interact();
             } else if (game.currentScene === 'outdoor') {
                 girl.interactWithChickens();
+            } else if (game.currentScene === 'kitchen') {
+                kitchen.interact();
             }
-            // Kitchen interactions are handled automatically in kitchen.update()
         }
     };
 
