@@ -888,6 +888,11 @@
         },
 
         interact: function() {
+            // Don't start new interactions if already doing something
+            if (this.girl.peeing || this.girl.bathing || this.girl.washingHands || this.girl.usingToiletPaper) {
+                return;
+            }
+
             // Toilet paper interaction
             if (girl.x < this.toiletPaper.x + this.toiletPaper.width &&
                 girl.x + girl.width > this.toiletPaper.x &&
@@ -1027,6 +1032,39 @@
             ctx.fillStyle = 'black';
             ctx.fillText('SINK', this.sink.x + this.sink.width/2, this.sink.y - 15);
 
+            // Draw toilet paper
+            if (this.toiletPaper.rolls > 0) {
+                ctx.fillStyle = 'white';
+                ctx.fillRect(this.toiletPaper.x, this.toiletPaper.y, this.toiletPaper.width, this.toiletPaper.height);
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(this.toiletPaper.x, this.toiletPaper.y, this.toiletPaper.width, this.toiletPaper.height);
+                
+                // Draw perforated lines
+                ctx.strokeStyle = '#ccc';
+                ctx.lineWidth = 1;
+                for (let i = 1; i < 4; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(this.toiletPaper.x, this.toiletPaper.y + i * this.toiletPaper.height/4);
+                    ctx.lineTo(this.toiletPaper.x + this.toiletPaper.width, this.toiletPaper.y + i * this.toiletPaper.height/4);
+                    ctx.stroke();
+                }
+                
+                ctx.fillStyle = 'black';
+                ctx.font = '8px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(`TP (${this.toiletPaper.rolls})`, this.toiletPaper.x + this.toiletPaper.width/2, this.toiletPaper.y - 5);
+            } else {
+                // Empty toilet paper holder
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(this.toiletPaper.x, this.toiletPaper.y, this.toiletPaper.width, this.toiletPaper.height);
+                ctx.fillStyle = 'red';
+                ctx.font = '8px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('EMPTY!', this.toiletPaper.x + this.toiletPaper.width/2, this.toiletPaper.y + this.toiletPaper.height/2);
+            }
+
             // Draw progress bars
             if (this.girl.peeing && this.girl.peeProgress > 0) {
                 this.drawProgressBar(ctx, 50, 50, this.girl.peeProgress, 'Peeing...');
@@ -1036,6 +1074,9 @@
             }
             if (this.girl.washingHands && this.girl.washProgress > 0) {
                 this.drawProgressBar(ctx, 50, 110, this.girl.washProgress, 'Washing hands...');
+            }
+            if (this.girl.usingToiletPaper && this.girl.wipingProgress > 0) {
+                this.drawProgressBar(ctx, 50, 140, this.girl.wipingProgress, 'Using toilet paper...');
             }
 
             // Draw hygiene status
@@ -1059,9 +1100,9 @@
 
         drawHygieneStatus: function(ctx) {
             ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-            ctx.fillRect(600, 50, 180, 150);
+            ctx.fillRect(600, 50, 180, 170);
             ctx.strokeStyle = '#333';
-            ctx.strokeRect(600, 50, 180, 150);
+            ctx.strokeRect(600, 50, 180, 170);
             
             ctx.fillStyle = 'black';
             ctx.font = '14px Arial';
@@ -1086,6 +1127,10 @@
             // Soap availability
             ctx.fillStyle = this.sink.hasSoap ? 'green' : 'red';
             ctx.fillText(`Soap: ${this.sink.hasSoap ? 'Available' : 'Empty'}`, 610, 150);
+            
+            // Toilet paper availability
+            ctx.fillStyle = this.toiletPaper.rolls > 0 ? 'green' : 'red';
+            ctx.fillText(`Toilet Paper: ${this.toiletPaper.rolls} rolls`, 610, 170);
         }
     };
 
@@ -1144,6 +1189,150 @@
         }
     };
 
+    // Debug system
+    const debug = {
+        logStatus: function() {
+            console.log('=== GAME STATUS ===');
+            console.log('Current Scene:', game.currentScene);
+            console.log('Girl Position:', {x: girl.x, y: girl.y});
+            console.log('Girl Stats:', {
+                dirtiness: girl.dirtiness,
+                needsBathroom: girl.needsBathroom,
+                handsClean: girl.handsClean,
+                carryingChicken: girl.carryingChicken
+            });
+            
+            if (game.currentScene === 'kitchen') {
+                console.log('Kitchen Stats:', {
+                    carriedIngredient: kitchen.girl.carriedIngredient?.name || 'none',
+                    bowlIngredients: kitchen.mixingBowl.ingredients,
+                    bowlMixed: kitchen.mixingBowl.mixed,
+                    waffleMaker: {
+                        hasBatter: kitchen.waffleMaker.hasBatter,
+                        cooking: kitchen.waffleMaker.cooking,
+                        waffleReady: kitchen.waffleMaker.waffleReady
+                    }
+                });
+            }
+            
+            if (game.currentScene === 'bathroom') {
+                console.log('Bathroom Stats:', {
+                    toiletPaperRolls: bathroom.toiletPaper.rolls,
+                    bathtubHasWater: bathroom.bathtub.hasWater,
+                    sinkHasWater: bathroom.sink.hasWater,
+                    activities: {
+                        peeing: bathroom.girl.peeing,
+                        bathing: bathroom.girl.bathing,
+                        washingHands: bathroom.girl.washingHands,
+                        usingToiletPaper: bathroom.girl.usingToiletPaper
+                    }
+                });
+            }
+            
+            if (game.currentScene === 'outdoor') {
+                console.log('Outdoor Stats:', {
+                    chickensCount: chickens.list.length,
+                    orangesLeft: orangeTree.oranges.filter(o => !o.picked).length
+                });
+            }
+        },
+
+        setDirtiness: function(value) {
+            girl.dirtiness = Math.max(0, Math.min(100, value));
+            console.log(`Set dirtiness to ${girl.dirtiness}`);
+        },
+
+        setBathroomNeed: function(value) {
+            girl.needsBathroom = Math.max(0, Math.min(100, value));
+            console.log(`Set bathroom need to ${girl.needsBathroom}`);
+        },
+
+        setHandsClean: function(clean) {
+            girl.handsClean = clean;
+            console.log(`Set hands clean to ${girl.handsClean}`);
+        },
+
+        gotoScene: function(sceneName) {
+            if (['indoor', 'outdoor', 'kitchen', 'bathroom'].includes(sceneName)) {
+                game.currentScene = sceneName;
+                girl.x = 100;
+                girl.y = 300;
+                console.log(`Moved to ${sceneName} scene`);
+            } else {
+                console.log('Invalid scene. Use: indoor, outdoor, kitchen, bathroom');
+            }
+        },
+
+        teleport: function(x, y) {
+            girl.x = x;
+            girl.y = y;
+            console.log(`Teleported girl to (${x}, ${y})`);
+        },
+
+        addToiletPaper: function(rolls = 3) {
+            bathroom.toiletPaper.rolls += rolls;
+            console.log(`Added ${rolls} toilet paper rolls. Total: ${bathroom.toiletPaper.rolls}`);
+        },
+
+        resetKitchen: function() {
+            kitchen.init();
+            console.log('Kitchen reset to initial state');
+        },
+
+        resetBathroom: function() {
+            bathroom.init();
+            console.log('Bathroom reset to initial state');
+        },
+
+        completeWaffle: function() {
+            kitchen.mixingBowl.ingredients = ['Flour', 'Eggs', 'Milk', 'Sugar'];
+            kitchen.mixingBowl.mixed = true;
+            kitchen.waffleMaker.hasBatter = true;
+            kitchen.waffleMaker.waffleReady = true;
+            kitchen.waffleMaker.cooking = false;
+            console.log('Waffle completed - ready to collect!');
+        },
+
+        getDirty: function() {
+            girl.dirtiness = 80;
+            girl.handsClean = false;
+            console.log('Girl is now dirty and needs a bath!');
+        },
+
+        makeUrgent: function() {
+            girl.needsBathroom = 95;
+            console.log('Girl really needs to use the bathroom!');
+        },
+
+        showHelp: function() {
+            console.log('=== DEBUG COMMANDS ===');
+            console.log('debug.logStatus() - Show current game status');
+            console.log('debug.setDirtiness(0-100) - Set cleanliness level');
+            console.log('debug.setBathroomNeed(0-100) - Set bathroom urgency');
+            console.log('debug.setHandsClean(true/false) - Set hand cleanliness');
+            console.log('debug.gotoScene("sceneName") - Teleport to scene');
+            console.log('debug.teleport(x, y) - Move girl to coordinates');
+            console.log('debug.addToiletPaper(rolls) - Add toilet paper');
+            console.log('debug.resetKitchen() - Reset kitchen state');
+            console.log('debug.resetBathroom() - Reset bathroom state');
+            console.log('debug.completeWaffle() - Instant waffle ready');
+            console.log('debug.getDirty() - Make girl dirty');
+            console.log('debug.makeUrgent() - Make bathroom urgent');
+            console.log('debug.showHelp() - Show this help');
+        }
+    };
+
+    // Make debug available globally
+    window.debug = debug;
+
+    // Auto-log status periodically in development
+    setInterval(() => {
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            // Only auto-log on localhost
+            console.log(`[${new Date().toLocaleTimeString()}] Scene: ${game.currentScene}, Girl: (${Math.round(girl.x)}, ${Math.round(girl.y)}), Dirty: ${Math.round(girl.dirtiness)}%, Bathroom: ${Math.round(girl.needsBathroom)}%`);
+        }
+    }, 10000); // Every 10 seconds
+
     // Initialize the game
     game.init();
     input.init();
@@ -1151,4 +1340,9 @@
     chickens.init();
     kitchen.init();
     bathroom.init();
+
+    // Show debug help on load
+    console.log('=== JOJO GAME DEBUG SYSTEM ===');
+    console.log('Type debug.showHelp() for available commands');
+    console.log('Type debug.logStatus() to see current game state');
 })();
