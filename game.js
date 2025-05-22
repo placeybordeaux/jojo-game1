@@ -66,6 +66,9 @@
             
             // Update girl's hygiene
             this.updateHygiene();
+            
+            // Update TV animation
+            tv.update();
         },
 
         draw: function() {
@@ -75,6 +78,7 @@
                 door.draw(this.ctx);  // Draw the door
                 kitchenDoor.draw(this.ctx);  // Draw the kitchen door
                 bathroomDoor.draw(this.ctx);  // Draw the bathroom door
+                tv.draw(this.ctx);  // Draw the TV
                 items.apple.draw(this.ctx);
                 items.cookie.draw(this.ctx);
             } else if (this.currentScene === 'outdoor') {
@@ -190,6 +194,189 @@
             ctx.font = '12px Arial';
             ctx.textAlign = 'center';
             ctx.fillText('BATHROOM', this.x + this.width/2, this.y + this.height/2);
+        }
+    };
+
+    const tv = {
+        x: 250,
+        y: 180,
+        width: 80,
+        height: 60,
+        isOn: false,
+        animationTime: 0,
+        scene: 'cooking', // cooking, nature, or rainbow
+        
+        draw: function(ctx) {
+            // TV frame (gray)
+            ctx.strokeStyle = '#666';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(this.x, this.y, this.width, this.height);
+            
+            // TV stand
+            ctx.fillStyle = '#444';
+            ctx.fillRect(this.x + this.width/2 - 10, this.y + this.height, 20, 8);
+            
+            if (this.isOn) {
+                // Draw TV show content
+                this.drawTVShow(ctx);
+            } else {
+                // TV screen (black when off)
+                ctx.fillStyle = 'black';
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                
+                // Screen reflection when off
+                ctx.fillStyle = '#333';
+                ctx.fillRect(this.x + 5, this.y + 5, this.width - 10, this.height - 10);
+            }
+            
+            // TV label
+            ctx.fillStyle = 'black';
+            ctx.font = '10px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('TV', this.x + this.width/2, this.y - 5);
+        },
+
+        drawTVShow: function(ctx) {
+            // Screen background (blue sky)
+            ctx.fillStyle = '#87CEEB';
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+            
+            if (this.scene === 'cooking') {
+                this.drawCookingShow(ctx);
+            } else if (this.scene === 'nature') {
+                this.drawNatureShow(ctx);
+            } else if (this.scene === 'rainbow') {
+                this.drawRainbowShow(ctx);
+            }
+            
+            // TV scan lines effect
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < this.height; i += 3) {
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y + i);
+                ctx.lineTo(this.x + this.width, this.y + i);
+                ctx.stroke();
+            }
+        },
+
+        drawCookingShow: function(ctx) {
+            // Chef (simple stick figure with hat)
+            const centerX = this.x + this.width/2;
+            const centerY = this.y + this.height/2;
+            
+            // Chef hat
+            ctx.fillStyle = 'white';
+            ctx.fillRect(centerX - 8, centerY - 20, 16, 12);
+            
+            // Chef head
+            ctx.fillStyle = '#FFDBAC';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY - 10, 6, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Chef body
+            ctx.fillStyle = 'white';
+            ctx.fillRect(centerX - 6, centerY - 5, 12, 15);
+            
+            // Cooking pot (bouncing slightly)
+            const bounce = Math.sin(this.animationTime * 0.1) * 2;
+            ctx.fillStyle = '#444';
+            ctx.fillRect(centerX + 15, centerY + bounce, 12, 8);
+            
+            // Steam from pot
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            for (let i = 0; i < 3; i++) {
+                const steamY = centerY + bounce - 5 - i * 3 + Math.sin(this.animationTime * 0.15 + i) * 2;
+                ctx.beginPath();
+                ctx.arc(centerX + 21 + i * 2, steamY, 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        },
+
+        drawNatureShow: function(ctx) {
+            // Ground
+            ctx.fillStyle = '#90EE90';
+            ctx.fillRect(this.x, this.y + this.height - 15, this.width, 15);
+            
+            // Tree
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(this.x + 20, this.y + 30, 8, 20);
+            
+            // Tree leaves (swaying)
+            const sway = Math.sin(this.animationTime * 0.08) * 3;
+            ctx.fillStyle = '#228B22';
+            ctx.beginPath();
+            ctx.arc(this.x + 24 + sway, this.y + 30, 12, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Bird flying across screen
+            const birdX = this.x + (this.animationTime * 0.5) % (this.width + 20) - 10;
+            const birdY = this.y + 15 + Math.sin(this.animationTime * 0.1) * 3;
+            
+            if (birdX >= this.x - 10 && birdX <= this.x + this.width + 10) {
+                ctx.fillStyle = 'black';
+                ctx.font = '8px Arial';
+                ctx.fillText('v', birdX, birdY);
+            }
+            
+            // Sun
+            ctx.fillStyle = '#FFD700';
+            ctx.beginPath();
+            ctx.arc(this.x + this.width - 15, this.y + 15, 8, 0, Math.PI * 2);
+            ctx.fill();
+        },
+
+        drawRainbowShow: function(ctx) {
+            // Rainbow colors
+            const colors = ['#FF0000', '#FF7F00', '#FFFF00', '#00FF00', '#0000FF', '#4B0082', '#9400D3'];
+            
+            // Animated rainbow bands
+            for (let i = 0; i < colors.length; i++) {
+                const y = this.y + 10 + i * 6 + Math.sin(this.animationTime * 0.1 + i * 0.5) * 2;
+                ctx.fillStyle = colors[i];
+                ctx.fillRect(this.x + 5, y, this.width - 10, 4);
+            }
+            
+            // Bouncing star
+            const starX = this.x + this.width/2 + Math.sin(this.animationTime * 0.12) * 20;
+            const starY = this.y + this.height/2 + Math.cos(this.animationTime * 0.08) * 10;
+            
+            ctx.fillStyle = '#FFD700';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('★', starX, starY);
+        },
+
+        update: function() {
+            if (this.isOn) {
+                this.animationTime++;
+                
+                // Switch scenes every 300 frames (about 5 seconds at 60fps)
+                if (this.animationTime % 300 === 0) {
+                    const scenes = ['cooking', 'nature', 'rainbow'];
+                    const currentIndex = scenes.indexOf(this.scene);
+                    this.scene = scenes[(currentIndex + 1) % scenes.length];
+                }
+            }
+        },
+
+        interact: function() {
+            if (girl.x < this.x + this.width &&
+                girl.x + girl.width > this.x &&
+                girl.y < this.y + this.height &&
+                girl.y + girl.height > this.y) {
+                
+                this.isOn = !this.isOn;
+                if (this.isOn) {
+                    this.animationTime = 0;
+                    speechBubble.show('Yay TV!');
+                } else {
+                    speechBubble.show('TV off');
+                }
+                return true;
+            }
+            return false;
         }
     };
 
@@ -1177,8 +1364,10 @@
 
         interact: function() {
             if (game.currentScene === 'indoor') {
-                items.apple.interact();
-                items.cookie.interact();
+                if (!tv.interact()) {
+                    items.apple.interact();
+                    items.cookie.interact();
+                }
             } else if (game.currentScene === 'outdoor') {
                 girl.interactWithChickens();
             } else if (game.currentScene === 'kitchen') {
