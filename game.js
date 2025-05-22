@@ -888,6 +888,22 @@
         },
 
         interact: function() {
+            // Toilet paper interaction
+            if (girl.x < this.toiletPaper.x + this.toiletPaper.width &&
+                girl.x + girl.width > this.toiletPaper.x &&
+                girl.y < this.toiletPaper.y + this.toiletPaper.height &&
+                girl.y + girl.height > this.toiletPaper.y) {
+                
+                if (this.toiletPaper.rolls > 0) {
+                    this.girl.usingToiletPaper = true;
+                    this.girl.wipingProgress = 0;
+                    speechBubble.show('Hold space to use toilet paper!');
+                } else {
+                    speechBubble.show('No toilet paper left!');
+                }
+                return;
+            }
+
             // Toilet interaction
             if (girl.x < this.toilet.x + this.toilet.width &&
                 girl.x + girl.width > this.toilet.x &&
