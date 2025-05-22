@@ -58,6 +58,7 @@
                 orangeTree.update();
                 chickens.update();
                 chickenCoop.checkChickenDelivery();
+                friend.update();
             } else if (this.currentScene === 'kitchen') {
                 kitchen.update();
             } else if (this.currentScene === 'bathroom') {
@@ -86,6 +87,7 @@
                 orangeTree.draw(this.ctx);
                 chickens.draw(this.ctx);
                 chickenCoop.draw(this.ctx);
+                friend.draw(this.ctx);
             } else if (this.currentScene === 'kitchen') {
                 kitchen.draw(this.ctx);
             } else if (this.currentScene === 'bathroom') {
@@ -93,6 +95,7 @@
             }
             girl.draw(this.ctx);
             speechBubble.draw(this.ctx);
+            inventory.draw(this.ctx);
         },
 
         checkSceneTransition: function() {
@@ -390,6 +393,8 @@
         dirtiness: 0, // 0-100, 100 being very dirty
         needsBathroom: 0, // 0-100, 100 being urgent
         handsClean: true,
+        inventory: [], // Array of items: {name: 'Apple', type: 'food', icon: '🍎'}
+        maxInventorySize: 6,
         
         move: function() {
             let dx = 0;
@@ -475,7 +480,12 @@
                     girl.y < orange.y + orange.height &&
                     girl.y + girl.height > orange.y) {
                     orange.picked = true;
-                    speechBubble.show('Yum! Fresh orange!');
+                    const orangeItem = {name: 'Orange', type: 'food', icon: '🍊'};
+                    if (inventory.addItem(orangeItem)) {
+                        speechBubble.show('Picked an orange! 🍊');
+                    } else {
+                        speechBubble.show('Inventory full!');
+                    }
                 }
             });
         },
@@ -1321,6 +1331,258 @@
         }
     };
 
+    const friend = {
+        x: -100, // Starts off-screen
+        y: 250,
+        width: 50,
+        height: 100,
+        speed: 1,
+        isVisiting: false,
+        visitDuration: 0,
+        maxVisitTime: 1800, // 30 seconds at 60fps
+        nextVisitTime: 300, // 5 seconds until first visit
+        inventory: [
+            {name: 'Flower', type: 'gift', icon: '🌸'},
+            {name: 'Book', type: 'gift', icon: '📖'}
+        ],
+        waving: false,
+        waveTime: 0,
+        
+        init: function() {
+            this.x = -100;
+            this.isVisiting = false;
+            this.visitDuration = 0;
+            this.nextVisitTime = 300;
+            this.inventory = [
+                {name: 'Flower', type: 'gift', icon: '🌸'},
+                {name: 'Book', type: 'gift', icon: '📖'}
+            ];
+        },
+
+        update: function() {
+            if (!this.isVisiting) {
+                // Countdown to next visit
+                this.nextVisitTime--;
+                if (this.nextVisitTime <= 0) {
+                    this.startVisit();
+                }
+            } else {
+                // Handle visit
+                this.visitDuration++;
+                
+                if (this.x < 50) {
+                    // Walking in
+                    this.x += this.speed;
+                } else if (this.visitDuration > this.maxVisitTime - 200) {
+                    // Walking away
+                    this.x += this.speed;
+                    if (this.x > game.canvas.width + 100) {
+                        this.endVisit();
+                    }
+                } else {
+                    // Standing and potentially waving
+                    if (!this.waving && Math.random() < 0.005) {
+                        this.startWaving();
+                    }
+                }
+                
+                if (this.waving) {
+                    this.waveTime++;
+                    if (this.waveTime > 60) { // Wave for 1 second
+                        this.waving = false;
+                        this.waveTime = 0;
+                    }
+                }
+            }
+        },
+
+        startVisit: function() {
+            this.isVisiting = true;
+            this.visitDuration = 0;
+            this.x = -100;
+            speechBubble.show('A friend is visiting!');
+        },
+
+        endVisit: function() {
+            this.isVisiting = false;
+            this.visitDuration = 0;
+            this.nextVisitTime = 600 + Math.random() * 600; // 10-20 seconds until next visit
+            this.x = -100;
+        },
+
+        startWaving: function() {
+            this.waving = true;
+            this.waveTime = 0;
+            if (this.isNearGirl()) {
+                speechBubble.show('Hi there! 👋');
+            }
+        },
+
+        isNearGirl: function() {
+            return Math.abs(this.x - girl.x) < 100 && Math.abs(this.y - girl.y) < 100;
+        },
+
+        interact: function() {
+            if (this.isVisiting && this.x >= 50 && this.x <= game.canvas.width - 50 &&
+                girl.x < this.x + this.width &&
+                girl.x + girl.width > this.x &&
+                girl.y < this.y + this.height &&
+                girl.y + girl.height > this.y) {
+                
+                this.openTradingInterface();
+                return true;
+            }
+            return false;
+        },
+
+        openTradingInterface: function() {
+            // Simple trading - friend gives a random item if girl has oranges
+            const girlHasOranges = girl.inventory.some(item => item.name === 'Orange');
+            const friendHasItems = this.inventory.length > 0;
+            
+            if (girlHasOranges && friendHasItems) {
+                // Trade orange for friend's item
+                const orangeIndex = girl.inventory.findIndex(item => item.name === 'Orange');
+                const friendItem = this.inventory.shift();
+                
+                girl.inventory.splice(orangeIndex, 1);
+                girl.inventory.push(friendItem);
+                
+                speechBubble.show(`Thanks! Here's a ${friendItem.name}! ${friendItem.icon}`);
+            } else if (friendHasItems && girl.inventory.length < girl.maxInventorySize) {
+                // Friend gives free gift
+                const friendItem = this.inventory.shift();
+                girl.inventory.push(friendItem);
+                speechBubble.show(`Here's a gift! ${friendItem.name} ${friendItem.icon}`);
+            } else if (girlHasOranges) {
+                // Girl gives orange to friend
+                const orangeIndex = girl.inventory.findIndex(item => item.name === 'Orange');
+                girl.inventory.splice(orangeIndex, 1);
+                speechBubble.show('Thank you for the orange!');
+            } else {
+                speechBubble.show('Nice to see you!');
+            }
+        },
+
+        draw: function(ctx) {
+            if (this.isVisiting && this.x > -50) {
+                // Friend body (different color from girl)
+                ctx.fillStyle = '#FFB6C1'; // Light pink
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                
+                // Friend face
+                ctx.fillStyle = '#FFDBAC';
+                ctx.fillRect(this.x + 10, this.y + 10, 30, 30);
+                
+                // Hair (brown)
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(this.x + 5, this.y + 5, 40, 20);
+                
+                // Arms
+                ctx.fillStyle = '#FFDBAC';
+                if (this.waving) {
+                    // Waving arm up
+                    ctx.fillRect(this.x - 10, this.y + 20, 15, 30);
+                    ctx.fillRect(this.x + this.width, this.y + 15, 15, 25);
+                } else {
+                    // Arms down
+                    ctx.fillRect(this.x - 5, this.y + 25, 10, 40);
+                    ctx.fillRect(this.x + this.width - 5, this.y + 25, 10, 40);
+                }
+                
+                // Name tag
+                ctx.fillStyle = 'white';
+                ctx.font = '8px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Maya', this.x + this.width/2, this.y - 5);
+            }
+        }
+    };
+
+    const inventory = {
+        isOpen: false,
+        
+        toggle: function() {
+            this.isOpen = !this.isOpen;
+        },
+
+        addItem: function(item) {
+            if (girl.inventory.length < girl.maxInventorySize) {
+                girl.inventory.push(item);
+                return true;
+            }
+            return false;
+        },
+
+        removeItem: function(itemName) {
+            const index = girl.inventory.findIndex(item => item.name === itemName);
+            if (index !== -1) {
+                return girl.inventory.splice(index, 1)[0];
+            }
+            return null;
+        },
+
+        hasItem: function(itemName) {
+            return girl.inventory.some(item => item.name === itemName);
+        },
+
+        draw: function(ctx) {
+            if (this.isOpen) {
+                // Inventory background
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                ctx.fillRect(50, 50, 300, 200);
+                
+                ctx.fillStyle = 'white';
+                ctx.strokeStyle = 'gray';
+                ctx.lineWidth = 2;
+                ctx.fillRect(55, 55, 290, 190);
+                ctx.strokeRect(55, 55, 290, 190);
+                
+                // Title
+                ctx.fillStyle = 'black';
+                ctx.font = '16px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Inventory', 200, 75);
+                
+                // Items
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'left';
+                for (let i = 0; i < girl.inventory.length; i++) {
+                    const item = girl.inventory[i];
+                    const x = 70 + (i % 3) * 90;
+                    const y = 100 + Math.floor(i / 3) * 40;
+                    
+                    // Item slot
+                    ctx.fillStyle = '#f0f0f0';
+                    ctx.fillRect(x, y, 80, 30);
+                    ctx.strokeStyle = '#ccc';
+                    ctx.strokeRect(x, y, 80, 30);
+                    
+                    // Item
+                    ctx.fillStyle = 'black';
+                    ctx.fillText(`${item.icon} ${item.name}`, x + 5, y + 20);
+                }
+                
+                // Empty slots
+                for (let i = girl.inventory.length; i < girl.maxInventorySize; i++) {
+                    const x = 70 + (i % 3) * 90;
+                    const y = 100 + Math.floor(i / 3) * 40;
+                    
+                    ctx.fillStyle = '#f8f8f8';
+                    ctx.fillRect(x, y, 80, 30);
+                    ctx.strokeStyle = '#ddd';
+                    ctx.strokeRect(x, y, 80, 30);
+                }
+                
+                // Instructions
+                ctx.fillStyle = 'gray';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Press I to close inventory', 200, 230);
+            }
+        }
+    };
+
     const input = {
         rightPressed: false,
         leftPressed: false,
@@ -1345,6 +1607,8 @@
             } else if (e.key === ' ' || e.key === 'Spacebar') {
                 this.spacePressed = true;
                 this.interact();
+            } else if (e.key === 'i' || e.key === 'I') {
+                inventory.toggle();
             }
         },
 
@@ -1369,7 +1633,9 @@
                     items.cookie.interact();
                 }
             } else if (game.currentScene === 'outdoor') {
-                girl.interactWithChickens();
+                if (!friend.interact()) {
+                    girl.interactWithChickens();
+                }
             } else if (game.currentScene === 'kitchen') {
                 kitchen.interact();
             } else if (game.currentScene === 'bathroom') {
@@ -1529,6 +1795,7 @@
     chickens.init();
     kitchen.init();
     bathroom.init();
+    friend.init();
 
     // Show debug help on load
     console.log('=== JOJO GAME DEBUG SYSTEM ===');
