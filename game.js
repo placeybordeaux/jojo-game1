@@ -11,7 +11,13 @@
             orangeTree: { src: 'orange_tree.png' },
             orange: { src: 'orange.png' },
             chicken: { src: 'chicken.png' },
-            chickenCoop: { src: 'chicken_coop.png' }
+            chickenCoop: { src: 'chicken_coop.png' },
+            kitten: { src: 'kitten.png' }, // Optional: can fallback to programmatic
+            mamaCat: { src: 'mama_cat.png' }, // Optional: can fallback to programmatic
+            catFood: { src: 'cat_food.png' }, // Optional
+            milk: { src: 'milk.png' }, // Optional
+            ballToy: { src: 'ball_toy.png' }, // Optional
+            featherToy: { src: 'feather_toy.png' } // Optional
         },
         imagesLoaded: 0,
         totalImages: 0,
@@ -25,18 +31,36 @@
         },
 
         loadImages: function() {
+            const optionalImages = ['kitten', 'mamaCat', 'catFood', 'milk', 'ballToy', 'featherToy'];
+            
             for (let key in this.images) {
                 this.images[key].img = new Image();
+                this.images[key].loaded = false;
+                
                 this.images[key].img.onload = () => {
+                    this.images[key].loaded = true;
                     this.imagesLoaded++;
                     if (this.imagesLoaded === this.totalImages) {
                         this.startGame();
                     }
                 };
+                
                 this.images[key].img.onerror = () => {
-                    console.error(`Failed to load image: ${key} (${this.images[key].src})`);
-                    alert(`Error: Failed to load image '${key}' (${this.images[key].src}). Please check if the file exists and the path is correct.`);
+                    if (optionalImages.includes(key)) {
+                        // Optional image failed - use programmatic fallback
+                        console.log(`Optional image '${key}' not found, using programmatic rendering`);
+                        this.images[key].loaded = false;
+                        this.imagesLoaded++;
+                        if (this.imagesLoaded === this.totalImages) {
+                            this.startGame();
+                        }
+                    } else {
+                        // Required image failed
+                        console.error(`Failed to load required image: ${key} (${this.images[key].src})`);
+                        alert(`Error: Failed to load required image '${key}' (${this.images[key].src}). Please check if the file exists and the path is correct.`);
+                    }
                 };
+                
                 this.images[key].img.src = this.images[key].src;
             }
         },
@@ -58,11 +82,21 @@
                 orangeTree.update();
                 chickens.update();
                 chickenCoop.checkChickenDelivery();
+                garbageCan.checkTrashDisposal();  // Check trash disposal
                 friend.update();
             } else if (this.currentScene === 'kitchen') {
                 kitchen.update();
             } else if (this.currentScene === 'bathroom') {
                 bathroom.update();
+            } else if (this.currentScene === 'indoor') {
+                kitten.update();
+                mamaCat.update();
+                // Update cat items interaction
+                for (let item in catItems) {
+                    catItems[item].interact();
+                }
+                // Update trash interaction
+                trash.interact();
             }
             
             // Update girl's hygiene
@@ -82,12 +116,21 @@
                 tv.draw(this.ctx);  // Draw the TV
                 items.apple.draw(this.ctx);
                 items.cookie.draw(this.ctx);
+                trash.draw(this.ctx);  // Draw trash items
+                kitten.draw(this.ctx);  // Draw the kitten
+                mamaCat.draw(this.ctx);  // Draw mama cat
+                // Draw cat items
+                for (let item in catItems) {
+                    catItems[item].draw(this.ctx);
+                }
             } else if (this.currentScene === 'outdoor') {
                 this.ctx.drawImage(this.images.outdoorBackground.img, 0, 0, this.canvas.width, this.canvas.height);
                 orangeTree.draw(this.ctx);
                 chickens.draw(this.ctx);
                 chickenCoop.draw(this.ctx);
+                garbageCan.draw(this.ctx);  // Draw garbage can
                 friend.draw(this.ctx);
+                houseEntrance.draw(this.ctx);
             } else if (this.currentScene === 'kitchen') {
                 kitchen.draw(this.ctx);
             } else if (this.currentScene === 'bathroom') {
@@ -95,7 +138,8 @@
             }
             girl.draw(this.ctx);
             speechBubble.draw(this.ctx);
-            inventory.draw(this.ctx);
+            inventory.updateHTML();  // Update HTML sidebar
+            inventory.draw(this.ctx);         // Full overlay when open
         },
 
         checkSceneTransition: function() {
@@ -118,9 +162,9 @@
                 girl.x = 50;
                 girl.y = 300;
                 input.spacePressed = false;
-            } else if (this.currentScene === 'outdoor' && girl.x < 0) {
+            } else if (this.currentScene === 'outdoor' && girl.x <= -5) {
                 this.currentScene = 'indoor';
-                girl.x = this.canvas.width - girl.width - 50;  // Start a bit inside the house
+                girl.x = door.x - girl.width - 10;  // Position near the door
             } else if (this.currentScene === 'indoor' &&
                 girl.x + girl.width > bathroomDoor.x &&
                 girl.x < bathroomDoor.x + bathroomDoor.width &&
@@ -131,21 +175,24 @@
                 girl.x = 50;
                 girl.y = 300;
                 input.spacePressed = false;
-            } else if (this.currentScene === 'kitchen' && girl.x < 0) {
+            } else if (this.currentScene === 'kitchen' && girl.x <= -5) {
                 this.currentScene = 'indoor';
-                girl.x = kitchenDoor.x - girl.width - 10;
+                girl.x = kitchenDoor.x + kitchenDoor.width + 5;
                 girl.y = kitchenDoor.y + 20;
-            } else if (this.currentScene === 'bathroom' && girl.x < 0) {
+            } else if (this.currentScene === 'bathroom' && girl.x <= -5) {
                 this.currentScene = 'indoor';
-                girl.x = bathroomDoor.x - girl.width - 10;
+                girl.x = bathroomDoor.x + bathroomDoor.width + 5;
                 girl.y = bathroomDoor.y + 20;
             }
         },
 
         updateHygiene: function() {
-            // Slowly increase bathroom need over time
+            // Slowly increase bathroom needs over time
             if (girl.needsBathroom < 100) {
                 girl.needsBathroom += 0.02; // Takes about 5 minutes to get urgent
+            }
+            if (girl.needsPoop < 100) {
+                girl.needsPoop += 0.01; // Takes about 10 minutes to get urgent
             }
             
             // Get dirty when interacting with chickens
@@ -163,8 +210,32 @@
         height: 120,
         
         draw: function(ctx) {
-            ctx.fillStyle = 'brown';
+            // Door frame
+            ctx.fillStyle = '#8B4513';
             ctx.fillRect(this.x, this.y, this.width, this.height);
+            
+            // Door panels
+            ctx.fillStyle = '#D2691E';
+            ctx.fillRect(this.x + 5, this.y + 10, this.width - 10, this.height - 20);
+            
+            // Door handle
+            ctx.fillStyle = 'gold';
+            ctx.beginPath();
+            ctx.arc(this.x + this.width - 15, this.y + this.height/2, 3, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Door label
+            ctx.fillStyle = 'white';
+            ctx.font = '10px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('🚪 OUTSIDE', this.x + this.width/2, this.y - 5);
+            
+            // Interaction hint when nearby
+            if (Math.abs(girl.x - this.x) < 100 && Math.abs(girl.y - this.y) < 100) {
+                ctx.fillStyle = 'yellow';
+                ctx.font = '12px Arial';
+                ctx.fillText('Press SPACE', this.x + this.width/2, this.y - 20);
+            }
         }
     };
 
@@ -175,12 +246,32 @@
         height: 120,
         
         draw: function(ctx) {
-            ctx.fillStyle = 'darkgreen';
+            // Door frame
+            ctx.fillStyle = '#228B22';
             ctx.fillRect(this.x, this.y, this.width, this.height);
+            
+            // Door panels
+            ctx.fillStyle = '#32CD32';
+            ctx.fillRect(this.x + 5, this.y + 10, this.width - 10, this.height - 20);
+            
+            // Door handle
+            ctx.fillStyle = 'silver';
+            ctx.beginPath();
+            ctx.arc(this.x + this.width - 15, this.y + this.height/2, 3, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Door label
             ctx.fillStyle = 'white';
-            ctx.font = '12px Arial';
+            ctx.font = '10px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText('KITCHEN', this.x + this.width/2, this.y + this.height/2);
+            ctx.fillText('🍳 KITCHEN', this.x + this.width/2, this.y - 5);
+            
+            // Interaction hint when nearby
+            if (Math.abs(girl.x - this.x) < 100 && Math.abs(girl.y - this.y) < 100) {
+                ctx.fillStyle = 'yellow';
+                ctx.font = '12px Arial';
+                ctx.fillText('Press SPACE', this.x + this.width/2, this.y - 20);
+            }
         }
     };
 
@@ -191,12 +282,85 @@
         height: 120,
         
         draw: function(ctx) {
-            ctx.fillStyle = 'lightblue';
+            // Door frame
+            ctx.fillStyle = '#4169E1';
             ctx.fillRect(this.x, this.y, this.width, this.height);
-            ctx.fillStyle = 'darkblue';
+            
+            // Door panels
+            ctx.fillStyle = '#87CEEB';
+            ctx.fillRect(this.x + 5, this.y + 10, this.width - 10, this.height - 20);
+            
+            // Door handle
+            ctx.fillStyle = 'chrome';
+            ctx.beginPath();
+            ctx.arc(this.x + this.width - 15, this.y + this.height/2, 3, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Door label
+            ctx.fillStyle = 'white';
+            ctx.font = '10px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('🚿 BATHROOM', this.x + this.width/2, this.y - 5);
+            
+            // Interaction hint when nearby
+            if (Math.abs(girl.x - this.x) < 100 && Math.abs(girl.y - this.y) < 100) {
+                ctx.fillStyle = 'yellow';
+                ctx.font = '12px Arial';
+                ctx.fillText('Press SPACE', this.x + this.width/2, this.y - 20);
+            }
+        }
+    };
+
+    const houseEntrance = {
+        x: 10,
+        y: 280,
+        width: 80,
+        height: 120,
+        
+        draw: function(ctx) {
+            // House entrance (left side of outdoor scene)
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+            
+            // Door panel
+            ctx.fillStyle = '#D2691E';
+            ctx.fillRect(this.x + 10, this.y + 10, this.width - 20, this.height - 20);
+            
+            // Door handle
+            ctx.fillStyle = 'gold';
+            ctx.beginPath();
+            ctx.arc(this.x + this.width - 20, this.y + this.height/2, 4, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // House entrance label
+            ctx.fillStyle = 'white';
             ctx.font = '12px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText('BATHROOM', this.x + this.width/2, this.y + this.height/2);
+            ctx.fillText('🏠 HOUSE', this.x + this.width/2, this.y - 5);
+            
+            // Interaction hint when nearby
+            if (girl.x < this.x + this.width + 30 && girl.y > this.y - 30) {
+                ctx.fillStyle = 'yellow';
+                ctx.font = '10px Arial';
+                ctx.fillText('← Walk left to enter', this.x + this.width/2, this.y - 20);
+                ctx.fillText('or press SPACE', this.x + this.width/2, this.y - 10);
+            }
+        },
+        
+        interact: function() {
+            // Check if girl is near the entrance and space is pressed
+            if (girl.x < this.x + this.width + 20 &&
+                girl.x + girl.width > this.x - 10 &&
+                girl.y < this.y + this.height &&
+                girl.y + girl.height > this.y &&
+                input.spacePressed) {
+                game.currentScene = 'indoor';
+                girl.x = door.x - girl.width - 10;
+                girl.y = door.y + 20;
+                input.spacePressed = false;
+                return true;
+            }
+            return false;
         }
     };
 
@@ -391,10 +555,12 @@
         speed: 5,
         carryingChicken: false,
         dirtiness: 0, // 0-100, 100 being very dirty
-        needsBathroom: 0, // 0-100, 100 being urgent
+        needsBathroom: 0, // 0-100, 100 being urgent for pee
+        needsPoop: 0, // 0-100, 100 being urgent for poop
         handsClean: true,
         inventory: [], // Array of items: {name: 'Apple', type: 'food', icon: '🍎'}
         maxInventorySize: 6,
+        heldItem: null, // Item currently in hand: {name: 'Apple', type: 'food', icon: '🍎'}
         
         move: function() {
             let dx = 0;
@@ -426,10 +592,35 @@
 
         draw: function(ctx) {
             ctx.drawImage(game.images.girl.img, this.x, this.y, this.width, this.height);
+            
+            // Draw held item next to girl
+            if (this.heldItem) {
+                const itemX = this.x + this.width + 5;
+                const itemY = this.y + 10;
+                const itemSize = 25;
+                
+                // Item background
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.fillRect(itemX, itemY, itemSize, itemSize);
+                ctx.strokeStyle = '#666';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(itemX, itemY, itemSize, itemSize);
+                
+                // Item emoji
+                ctx.font = '18px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillStyle = 'black';
+                ctx.fillText(this.heldItem.icon, itemX + itemSize/2, itemY + itemSize/2 + 6);
+                
+                // Item name below
+                ctx.font = '8px Arial';
+                ctx.fillText(this.heldItem.name, itemX + itemSize/2, itemY + itemSize + 10);
+            }
         },
 
         interactWithChickens: function() {
             if (!this.carryingChicken) {
+                // Try to pick up a chicken
                 chickens.list.forEach(chicken => {
                     if (!chicken.carried &&
                         this.x < chicken.x + chicken.width &&
@@ -438,15 +629,25 @@
                         this.y + this.height > chicken.y) {
                         chicken.carried = true;
                         this.carryingChicken = true;
-                        speechBubble.show('Got you!');
+                        speechBubble.show('Picked up chicken! Take it to the coop!');
                     }
                 });
             } else {
+                // Already carrying - can only drop at coop or if really needed
+                speechBubble.show('Take the chicken to the coop first!');
+            }
+        },
+        
+        dropChicken: function() {
+            // Force drop chicken (for emergencies)
+            if (this.carryingChicken) {
                 chickens.list.forEach(chicken => {
                     if (chicken.carried) {
                         chicken.carried = false;
                         this.carryingChicken = false;
-                        speechBubble.show('Off you go!');
+                        chicken.x = this.x + 30; // Drop next to girl
+                        chicken.y = this.y;
+                        speechBubble.show('Dropped chicken!');
                     }
                 });
             }
@@ -481,11 +682,7 @@
                     girl.y + girl.height > orange.y) {
                     orange.picked = true;
                     const orangeItem = {name: 'Orange', type: 'food', icon: '🍊'};
-                    if (inventory.addItem(orangeItem)) {
-                        speechBubble.show('Picked an orange! 🍊');
-                    } else {
-                        speechBubble.show('Inventory full!');
-                    }
+                    handInventory.pickupItem(orangeItem);
                 }
             });
         },
@@ -553,6 +750,9 @@
             this.list.forEach(chicken => {
                 if (!chicken.carried) {
                     ctx.drawImage(game.images.chicken.img, chicken.x, chicken.y, chicken.width, chicken.height);
+                } else {
+                    // Draw carried chicken above the girl
+                    ctx.drawImage(game.images.chicken.img, chicken.x, chicken.y, chicken.width, chicken.height);
                 }
             });
         }
@@ -567,22 +767,51 @@
 
         draw: function(ctx) {
             ctx.drawImage(game.images.chickenCoop.img, this.x, this.y, this.width, this.height);
+            
+            // Show how many chickens are inside
+            if (this.chickensInside > 0) {
+                ctx.fillStyle = 'white';
+                ctx.strokeStyle = 'black';
+                ctx.lineWidth = 2;
+                ctx.font = '14px Arial';
+                ctx.textAlign = 'center';
+                ctx.strokeText(`🐔 ${this.chickensInside}`, this.x + this.width/2, this.y - 10);
+                ctx.fillText(`🐔 ${this.chickensInside}`, this.x + this.width/2, this.y - 10);
+            }
+            
+            // Show interaction hint when nearby and carrying a chicken
+            if (girl.carryingChicken &&
+                girl.x < this.x + this.width + 40 &&
+                girl.x + girl.width > this.x - 40 &&
+                girl.y < this.y + this.height + 40 &&
+                girl.y + girl.height > this.y - 40) {
+                ctx.fillStyle = 'yellow';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Walk close to deliver chicken!', this.x + this.width/2, this.y + this.height + 20);
+            }
         },
 
         checkChickenDelivery: function() {
-            chickens.list.forEach(chicken => {
-                if (chicken.carried &&
-                    girl.x < this.x + this.width &&
-                    girl.x + girl.width > this.x &&
-                    girl.y < this.y + this.height &&
-                    girl.y + girl.height > this.y) {
-                    chicken.carried = false;
-                    this.chickensInside++;
-                    chicken.x = -100;  // Move chicken off-screen
-                    chicken.y = -100;
-                    this.showHearts();
-                }
-            });
+            if (girl.carryingChicken &&
+                girl.x < this.x + this.width + 20 &&
+                girl.x + girl.width > this.x - 20 &&
+                girl.y < this.y + this.height + 20 &&
+                girl.y + girl.height > this.y - 20) {
+                
+                // Find the carried chicken
+                chickens.list.forEach(chicken => {
+                    if (chicken.carried) {
+                        chicken.carried = false;
+                        girl.carryingChicken = false;
+                        this.chickensInside++;
+                        chicken.x = -100;  // Move chicken off-screen
+                        chicken.y = -100;
+                        speechBubble.show(`Chicken safely in coop! (${this.chickensInside} total)`);
+                        this.showHearts();
+                    }
+                });
+            }
         },
 
         showHearts: function() {
@@ -628,7 +857,8 @@
                     girl.y < this.y + this.height &&
                     girl.y + girl.height > this.y) {
                     this.eaten = true;
-                    speechBubble.show('Hiccup!');
+                    const appleItem = {name: 'Apple', type: 'food', icon: '🍎'};
+                    handInventory.pickupItem(appleItem);
                 }
             }
         },
@@ -653,7 +883,913 @@
                     girl.y < this.y + this.height &&
                     girl.y + girl.height > this.y) {
                     this.eaten = true;
-                    speechBubble.show('Yum! I love it!');
+                    const cookieItem = {name: 'Cookie', type: 'food', icon: '🍪'};
+                    handInventory.pickupItem(cookieItem);
+                }
+            }
+        }
+    };
+
+    const kitten = {
+        x: 150,
+        y: 200,
+        width: 40,
+        height: 30,
+        happiness: 50,
+        hunger: 30,
+        lastMeow: 0,
+        isPlaying: false,
+        playingWithToy: null,
+        speed: 0.5,
+        direction: Math.random() * Math.PI * 2,
+        lastDirectionChange: 0,
+        isMoving: true,
+        restTime: 0,
+        isResting: false,
+        
+        draw: function(ctx) {
+            // Try to use image first, fallback to programmatic drawing
+            if (game.images.kitten && game.images.kitten.loaded) {
+                ctx.drawImage(game.images.kitten.img, this.x, this.y, this.width, this.height);
+            } else {
+                // Programmatic drawing fallback
+                this.drawProgrammatic(ctx);
+            }
+            
+            // Always draw status bars and effects
+            this.drawStatusBars(ctx);
+            
+            // Show playing animation if playing with toy
+            if (this.isPlaying && this.playingWithToy) {
+                ctx.font = '20px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillStyle = 'gold';
+                ctx.fillText('✨', this.x - 10, this.y);
+                ctx.fillText('✨', this.x + this.width + 10, this.y);
+            }
+        },
+        
+        drawProgrammatic: function(ctx) {
+            const centerX = this.x + this.width/2;
+            const centerY = this.y + this.height/2;
+            
+            // Draw kitten with better proportions
+            ctx.fillStyle = '#FFA500'; // Orange tabby
+            
+            // Main body (oval, lying down cat pose)
+            ctx.beginPath();
+            ctx.ellipse(centerX, centerY + 5, 16, 10, 0, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Chest (smaller oval)
+            ctx.beginPath();
+            ctx.ellipse(centerX - 2, centerY, 10, 8, 0, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Head (round but slightly oval)
+            ctx.beginPath();
+            ctx.ellipse(centerX - 8, centerY - 8, 8, 7, 0, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Ears (pointed triangles)
+            ctx.fillStyle = '#FF8C00'; // Darker orange
+            ctx.beginPath();
+            ctx.moveTo(centerX - 12, centerY - 12);
+            ctx.lineTo(centerX - 8, centerY - 18);
+            ctx.lineTo(centerX - 4, centerY - 12);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.moveTo(centerX - 8, centerY - 12);
+            ctx.lineTo(centerX - 4, centerY - 18);
+            ctx.lineTo(centerX, centerY - 12);
+            ctx.fill();
+            
+            // Inner ears (pink)
+            ctx.fillStyle = '#FFB6C1';
+            ctx.beginPath();
+            ctx.moveTo(centerX - 11, centerY - 13);
+            ctx.lineTo(centerX - 8, centerY - 16);
+            ctx.lineTo(centerX - 6, centerY - 13);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.moveTo(centerX - 7, centerY - 13);
+            ctx.lineTo(centerX - 4, centerY - 16);
+            ctx.lineTo(centerX - 1, centerY - 13);
+            ctx.fill();
+            
+            // Legs (small ovals)
+            ctx.fillStyle = '#FFA500';
+            // Front legs
+            ctx.beginPath();
+            ctx.ellipse(centerX - 6, centerY + 8, 3, 6, 0, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(centerX + 2, centerY + 8, 3, 6, 0, 0, 2 * Math.PI);
+            ctx.fill();
+            // Back legs (partially hidden)
+            ctx.beginPath();
+            ctx.ellipse(centerX + 8, centerY + 6, 3, 5, 0, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Paws (small dark circles)
+            ctx.fillStyle = '#8B4513';
+            ctx.beginPath();
+            ctx.arc(centerX - 6, centerY + 12, 2, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(centerX + 2, centerY + 12, 2, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(centerX + 8, centerY + 9, 2, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Tail (curved)
+            ctx.strokeStyle = '#FFA500';
+            ctx.lineWidth = 6;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(centerX + 14, centerY + 2);
+            ctx.quadraticCurveTo(centerX + 20, centerY - 5, centerX + 15, centerY - 12);
+            ctx.stroke();
+            
+            // Tabby stripes
+            ctx.strokeStyle = '#FF8C00';
+            ctx.lineWidth = 2;
+            // Body stripes
+            ctx.beginPath();
+            ctx.moveTo(centerX - 10, centerY - 2);
+            ctx.lineTo(centerX + 10, centerY + 3);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(centerX - 8, centerY + 3);
+            ctx.lineTo(centerX + 12, centerY + 8);
+            ctx.stroke();
+            
+            // Face features
+            // Eyes
+            ctx.fillStyle = '#90EE90'; // Light green eyes
+            if (this.isPlaying) {
+                // Happy closed eyes
+                ctx.strokeStyle = 'black';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(centerX - 11, centerY - 10, 2, 0, Math.PI);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(centerX - 5, centerY - 10, 2, 0, Math.PI);
+                ctx.stroke();
+            } else if (this.happiness < 30) {
+                // Sad droopy eyes
+                ctx.beginPath();
+                ctx.ellipse(centerX - 11, centerY - 10, 2, 1.5, 0.3, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(centerX - 5, centerY - 10, 2, 1.5, -0.3, 0, 2 * Math.PI);
+                ctx.fill();
+            } else {
+                // Normal alert eyes
+                ctx.beginPath();
+                ctx.ellipse(centerX - 11, centerY - 10, 2, 2.5, 0, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(centerX - 5, centerY - 10, 2, 2.5, 0, 0, 2 * Math.PI);
+                ctx.fill();
+                
+                // Pupils (vertical slits)
+                ctx.fillStyle = 'black';
+                ctx.fillRect(centerX - 11.5, centerY - 11, 1, 3);
+                ctx.fillRect(centerX - 5.5, centerY - 11, 1, 3);
+            }
+            
+            // Nose (pink triangle)
+            ctx.fillStyle = '#FFB6C1';
+            ctx.beginPath();
+            ctx.moveTo(centerX - 8, centerY - 6);
+            ctx.lineTo(centerX - 9, centerY - 4);
+            ctx.lineTo(centerX - 7, centerY - 4);
+            ctx.fill();
+            
+            // Mouth (W shape)
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(centerX - 9, centerY - 4);
+            ctx.lineTo(centerX - 8, centerY - 3);
+            ctx.lineTo(centerX - 7, centerY - 4);
+            ctx.stroke();
+            
+            // Whiskers (longer and more realistic)
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 1;
+            // Left whiskers
+            ctx.beginPath();
+            ctx.moveTo(centerX - 15, centerY - 8);
+            ctx.lineTo(centerX - 10, centerY - 7);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(centerX - 15, centerY - 6);
+            ctx.lineTo(centerX - 10, centerY - 5);
+            ctx.stroke();
+            // Right whiskers
+            ctx.beginPath();
+            ctx.moveTo(centerX - 6, centerY - 7);
+            ctx.lineTo(centerX - 1, centerY - 8);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(centerX - 6, centerY - 5);
+            ctx.lineTo(centerX - 1, centerY - 6);
+            ctx.stroke();
+        },
+        
+        drawStatusBars: function(ctx) {
+            const barWidth = 30;
+            const barHeight = 4;
+            const barY = this.y - 15;
+            
+            // Happiness bar (green)
+            ctx.fillStyle = 'lightgray';
+            ctx.fillRect(this.x + 5, barY, barWidth, barHeight);
+            ctx.fillStyle = '#4CAF50';
+            ctx.fillRect(this.x + 5, barY, (this.happiness / 100) * barWidth, barHeight);
+            
+            // Hunger bar (orange)
+            ctx.fillStyle = 'lightgray';
+            ctx.fillRect(this.x + 5, barY - 8, barWidth, barHeight);
+            ctx.fillStyle = '#FF9800';
+            ctx.fillRect(this.x + 5, barY - 8, (this.hunger / 100) * barWidth, barHeight);
+        },
+        
+        update: function() {
+            // Movement behavior
+            this.updateMovement();
+            
+            // Slowly decrease happiness and increase hunger over time
+            if (Date.now() % 100 === 0) { // Every 100ms
+                this.happiness = Math.max(0, this.happiness - 0.1);
+                this.hunger = Math.min(100, this.hunger + 0.05);
+            }
+            
+            // Random meowing
+            if (Date.now() - this.lastMeow > 8000 + Math.random() * 10000) {
+                const meows = ['Meow!', 'Mew!', 'Purr~', 'Mrow!'];
+                speechBubble.showForKitten(meows[Math.floor(Math.random() * meows.length)]);
+                this.lastMeow = Date.now();
+            }
+            
+            // Stop playing after a while
+            if (this.isPlaying && Date.now() - this.playStartTime > 3000) {
+                this.isPlaying = false;
+                this.playingWithToy = null;
+                this.isMoving = true; // Start moving again after playing
+            }
+            
+            this.checkInteraction();
+        },
+        
+        updateMovement: function() {
+            // Don't move if playing with toy
+            if (this.isPlaying) {
+                return;
+            }
+            
+            const now = Date.now();
+            
+            // Handle resting behavior
+            if (this.isResting) {
+                if (now - this.restTime > 2000 + Math.random() * 3000) { // Rest 2-5 seconds
+                    this.isResting = false;
+                    this.isMoving = true;
+                    this.direction = Math.random() * Math.PI * 2; // New random direction
+                }
+                return;
+            }
+            
+            // Move around if not resting
+            if (this.isMoving) {
+                // Change direction occasionally
+                if (now - this.lastDirectionChange > 3000 + Math.random() * 4000) {
+                    this.direction = Math.random() * Math.PI * 2;
+                    this.lastDirectionChange = now;
+                    
+                    // Sometimes stop to rest
+                    if (Math.random() < 0.3) {
+                        this.isMoving = false;
+                        this.isResting = true;
+                        this.restTime = now;
+                        return;
+                    }
+                }
+                
+                // Calculate movement
+                const newX = this.x + Math.cos(this.direction) * this.speed;
+                const newY = this.y + Math.sin(this.direction) * this.speed;
+                
+                // Bounce off walls
+                if (newX < 10 || newX > game.canvas.width - this.width - 10) {
+                    this.direction = Math.PI - this.direction; // Reflect horizontally
+                } else if (newY < 50 || newY > game.canvas.height - this.height - 10) {
+                    this.direction = -this.direction; // Reflect vertically
+                } else {
+                    this.x = newX;
+                    this.y = newY;
+                }
+            }
+        },
+        
+        checkInteraction: function() {
+            if (girl.x < this.x + this.width + 20 &&
+                girl.x + girl.width > this.x - 20 &&
+                girl.y < this.y + this.height + 20 &&
+                girl.y + girl.height > this.y - 20) {
+                
+                // Check if girl has cat food or milk
+                if (girl.heldItem) {
+                    if (girl.heldItem.name === 'Cat Food') {
+                        this.feed();
+                        girl.heldItem = null;
+                    } else if (girl.heldItem.name === 'Milk') {
+                        this.giveMilk();
+                        girl.heldItem = null;
+                    } else if (girl.heldItem.type === 'cat_toy') {
+                        this.playWith(girl.heldItem);
+                    }
+                }
+            }
+        },
+        
+        feed: function() {
+            this.hunger = Math.max(0, this.hunger - 40);
+            this.happiness = Math.min(100, this.happiness + 20);
+            speechBubble.showForKitten('Nom nom! Purr~ 😸');
+        },
+        
+        giveMilk: function() {
+            this.hunger = Math.max(0, this.hunger - 20);
+            this.happiness = Math.min(100, this.happiness + 15);
+            speechBubble.showForKitten('Lap lap! Mew~ 🥛');
+        },
+        
+        playWith: function(toy) {
+            this.happiness = Math.min(100, this.happiness + 30);
+            this.isPlaying = true;
+            this.playingWithToy = toy;
+            this.playStartTime = Date.now();
+            speechBubble.showForKitten(`Playing with ${toy.icon}! Purr purr!`);
+        }
+    };
+
+    const mamaCat = {
+        x: -100, // Starts off-screen
+        y: 150,
+        width: 55,
+        height: 40,
+        speed: 0.8,
+        isVisiting: false,
+        isLeaving: false,
+        groomingKitten: false,
+        groomStartTime: 0,
+        groomDuration: 4000, // 4 seconds
+        nextVisitTime: 8000, // 8 seconds until first visit
+        visitDuration: 0,
+        maxVisitTime: 12000, // 12 seconds max visit
+        lastMeow: 0,
+        
+        update: function() {
+            if (this.isLeaving) {
+                this.updateLeaving();
+                return;
+            }
+            
+            if (!this.isVisiting) {
+                // Check if it's time for mama to visit
+                this.nextVisitTime -= 16; // Assuming 60fps
+                if (this.nextVisitTime <= 0) {
+                    this.startVisit();
+                }
+            } else {
+                this.visitDuration += 16;
+                
+                if (!this.groomingKitten) {
+                    // Move towards kitten
+                    const targetX = kitten.x - 25;
+                    const targetY = kitten.y + 5;
+                    
+                    if (Math.abs(this.x - targetX) > 8) {
+                        this.x += (targetX > this.x) ? this.speed : -this.speed;
+                    }
+                    if (Math.abs(this.y - targetY) > 8) {
+                        this.y += (targetY > this.y) ? this.speed : -this.speed;
+                    }
+                    
+                    // Start grooming if close enough or after some time
+                    if ((Math.abs(this.x - targetX) <= 8 && Math.abs(this.y - targetY) <= 8) ||
+                        this.visitDuration > 5000) { // Start grooming after 5 seconds even if not perfectly positioned
+                        this.startGrooming();
+                    }
+                } else {
+                    // Grooming behavior
+                    if (Date.now() - this.groomStartTime > this.groomDuration) {
+                        this.stopGrooming();
+                    }
+                }
+                
+                // Random mama cat meowing
+                if (Date.now() - this.lastMeow > 6000 + Math.random() * 8000) {
+                    const mamaVocalizations = ['Mrrow', 'Purr purr~', 'Mrow mrow', 'Come here baby~'];
+                    speechBubble.showForMamaCat(mamaVocalizations[Math.floor(Math.random() * mamaVocalizations.length)]);
+                    this.lastMeow = Date.now();
+                }
+                
+                // End visit if time is up
+                if (this.visitDuration > this.maxVisitTime) {
+                    this.endVisit();
+                }
+            }
+        },
+        
+        startVisit: function() {
+            this.isVisiting = true;
+            this.visitDuration = 0;
+            this.x = game.canvas.width + 50; // Start from right side
+            this.y = 150 + Math.random() * 100; // Random Y position
+            speechBubble.showForMamaCat('Time to check on my baby~');
+        },
+        
+        startGrooming: function() {
+            this.groomingKitten = true;
+            this.groomStartTime = Date.now();
+            kitten.isMoving = false; // Stop kitten movement during grooming
+            kitten.isResting = true;
+            speechBubble.showForMamaCat('*lick lick* Clean baby!');
+            
+            // Increase kitten happiness
+            kitten.happiness = Math.min(100, kitten.happiness + 20);
+        },
+        
+        stopGrooming: function() {
+            this.groomingKitten = false;
+            kitten.isResting = false; // Allow kitten to move again
+            speechBubble.showForMamaCat('All clean now sweetie!');
+        },
+        
+        endVisit: function() {
+            this.isVisiting = false;
+            this.groomingKitten = false;
+            this.visitDuration = 0;
+            this.isLeaving = true; // New state for walking away
+            this.nextVisitTime = 10000 + Math.random() * 15000; // 10-25 seconds until next visit
+            kitten.isResting = false; // Make sure kitten can move
+            speechBubble.showForMamaCat('Bye sweetie! Be good!');
+        },
+        
+        updateLeaving: function() {
+            // Walk off-screen to the left
+            this.x -= this.speed * 1.5; // Walk away faster
+            if (this.x < -100) {
+                this.isLeaving = false;
+            }
+        },
+        
+        draw: function(ctx) {
+            if (!this.isVisiting && !this.isLeaving) return;
+            
+            // Try to use image first, fallback to programmatic drawing
+            if (game.images.mamaCat && game.images.mamaCat.loaded) {
+                ctx.drawImage(game.images.mamaCat.img, this.x, this.y, this.width, this.height);
+            } else {
+                this.drawProgrammatic(ctx);
+            }
+            
+            // Show grooming animation
+            if (this.groomingKitten) {
+                ctx.font = '16px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillStyle = 'pink';
+                // Animated hearts
+                const heartOffset = Math.sin(Date.now() / 300) * 3;
+                ctx.fillText('💕', this.x + this.width/2, this.y - 10 + heartOffset);
+                ctx.fillText('💕', kitten.x + kitten.width/2, kitten.y - 5 - heartOffset);
+            }
+        },
+        
+        drawProgrammatic: function(ctx) {
+            const centerX = this.x + this.width/2;
+            const centerY = this.y + this.height/2;
+            
+            // Draw mama cat - larger and more mature looking
+            ctx.fillStyle = '#8B7355'; // Brown/grey mama cat
+            
+            // Main body (larger oval)
+            ctx.beginPath();
+            ctx.ellipse(centerX, centerY + 5, 22, 14, 0, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Chest
+            ctx.beginPath();
+            ctx.ellipse(centerX - 5, centerY, 14, 10, 0, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Head (larger)
+            ctx.beginPath();
+            ctx.ellipse(centerX - 12, centerY - 8, 10, 9, 0, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Ears
+            ctx.fillStyle = '#654321'; // Darker brown
+            ctx.beginPath();
+            ctx.moveTo(centerX - 18, centerY - 14);
+            ctx.lineTo(centerX - 12, centerY - 22);
+            ctx.lineTo(centerX - 6, centerY - 14);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.moveTo(centerX - 10, centerY - 14);
+            ctx.lineTo(centerX - 4, centerY - 22);
+            ctx.lineTo(centerX + 2, centerY - 14);
+            ctx.fill();
+            
+            // Inner ears
+            ctx.fillStyle = '#FFB6C1';
+            ctx.beginPath();
+            ctx.moveTo(centerX - 16, centerY - 15);
+            ctx.lineTo(centerX - 12, centerY - 19);
+            ctx.lineTo(centerX - 8, centerY - 15);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.moveTo(centerX - 8, centerY - 15);
+            ctx.lineTo(centerX - 4, centerY - 19);
+            ctx.lineTo(centerX, centerY - 15);
+            ctx.fill();
+            
+            // Legs
+            ctx.fillStyle = '#8B7355';
+            ctx.beginPath();
+            ctx.ellipse(centerX - 8, centerY + 12, 4, 8, 0, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(centerX + 4, centerY + 12, 4, 8, 0, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(centerX + 12, centerY + 8, 4, 7, 0, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Paws
+            ctx.fillStyle = '#654321';
+            ctx.beginPath();
+            ctx.arc(centerX - 8, centerY + 18, 3, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(centerX + 4, centerY + 18, 3, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(centerX + 12, centerY + 13, 3, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Tail (elegant curve)
+            ctx.strokeStyle = '#8B7355';
+            ctx.lineWidth = 8;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(centerX + 20, centerY);
+            ctx.quadraticCurveTo(centerX + 30, centerY - 10, centerX + 25, centerY - 20);
+            ctx.stroke();
+            
+            // Stripes
+            ctx.strokeStyle = '#654321';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(centerX - 15, centerY - 3);
+            ctx.lineTo(centerX + 15, centerY + 2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(centerX - 12, centerY + 5);
+            ctx.lineTo(centerX + 18, centerY + 10);
+            ctx.stroke();
+            
+            // Eyes (wise and motherly)
+            ctx.fillStyle = '#228B22'; // Green eyes
+            ctx.beginPath();
+            ctx.ellipse(centerX - 15, centerY - 10, 3, 3, 0, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(centerX - 9, centerY - 10, 3, 3, 0, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Pupils
+            ctx.fillStyle = 'black';
+            ctx.fillRect(centerX - 16, centerY - 11, 1, 2);
+            ctx.fillRect(centerX - 10, centerY - 11, 1, 2);
+            
+            // Nose
+            ctx.fillStyle = '#FFB6C1';
+            ctx.beginPath();
+            ctx.moveTo(centerX - 12, centerY - 6);
+            ctx.lineTo(centerX - 13, centerY - 4);
+            ctx.lineTo(centerX - 11, centerY - 4);
+            ctx.fill();
+            
+            // Mouth
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(centerX - 13, centerY - 4);
+            ctx.lineTo(centerX - 12, centerY - 3);
+            ctx.lineTo(centerX - 11, centerY - 4);
+            ctx.stroke();
+            
+            // Whiskers
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 1;
+            // Left whiskers
+            ctx.beginPath();
+            ctx.moveTo(centerX - 20, centerY - 8);
+            ctx.lineTo(centerX - 14, centerY - 7);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(centerX - 20, centerY - 6);
+            ctx.lineTo(centerX - 14, centerY - 5);
+            ctx.stroke();
+            // Right whiskers
+            ctx.beginPath();
+            ctx.moveTo(centerX - 10, centerY - 7);
+            ctx.lineTo(centerX - 4, centerY - 8);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(centerX - 10, centerY - 5);
+            ctx.lineTo(centerX - 4, centerY - 6);
+            ctx.stroke();
+        }
+    };
+
+    const trash = {
+        items: [
+            { name: 'Empty Bottle', x: 400, y: 200, width: 20, height: 30, collected: false, icon: '🍼', smell: 'medium' },
+            { name: 'Banana Peel', x: 250, y: 350, width: 25, height: 15, collected: false, icon: '🍌', smell: 'high' },
+            { name: 'Tissue', x: 150, y: 250, width: 15, height: 15, collected: false, icon: '🧻', smell: 'low' },
+            { name: 'Apple Core', x: 500, y: 300, width: 18, height: 20, collected: false, icon: '🍎', smell: 'medium' },
+            { name: 'Pizza Box', x: 350, y: 150, width: 40, height: 30, collected: false, icon: '📦', smell: 'high' }
+        ],
+        
+        draw: function(ctx) {
+            this.items.forEach(item => {
+                if (!item.collected) {
+                    ctx.font = '20px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(item.icon, item.x + item.width/2, item.y + item.height);
+                    
+                    // Draw small label
+                    ctx.font = '8px Arial';
+                    ctx.fillStyle = '#666';
+                    ctx.fillText(item.name, item.x + item.width/2, item.y - 5);
+                    ctx.fillStyle = 'black';
+                }
+            });
+        },
+        
+        interact: function() {
+            this.items.forEach(item => {
+                if (!item.collected &&
+                    girl.x < item.x + item.width + 10 &&
+                    girl.x + girl.width > item.x - 10 &&
+                    girl.y < item.y + item.height + 10 &&
+                    girl.y + girl.height > item.y - 10) {
+                    
+                    item.collected = true;
+                    const trashItem = {
+                        name: item.name,
+                        type: 'trash',
+                        icon: item.icon,
+                        smell: item.smell
+                    };
+                    
+                    // Add smell reactions
+                    if (item.smell === 'high') {
+                        speechBubble.show(`Eww! This ${item.name} stinks! 🤢`);
+                    } else if (item.smell === 'medium') {
+                        speechBubble.show(`Ugh, this ${item.name} smells! 😷`);
+                    } else {
+                        speechBubble.show(`Picked up ${item.name}`);
+                    }
+                    
+                    handInventory.pickupItem(trashItem);
+                }
+            });
+        }
+    };
+
+    const garbageCan = {
+        x: 500,
+        y: 200,
+        width: 60,
+        height: 80,
+        
+        draw: function(ctx) {
+            // Draw garbage can
+            ctx.fillStyle = '#444';
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+            
+            // Lid
+            ctx.fillStyle = '#666';
+            ctx.fillRect(this.x - 5, this.y - 10, this.width + 10, 15);
+            
+            // Handle
+            ctx.strokeStyle = '#888';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(this.x + this.width/2, this.y - 5, 8, Math.PI, 0);
+            ctx.stroke();
+            
+            // Garbage can label
+            ctx.fillStyle = 'white';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('🗑️ TRASH', this.x + this.width/2, this.y + this.height + 15);
+            
+            // Interaction hint when nearby with trash
+            if (this.hasTrashInHand() &&
+                girl.x < this.x + this.width + 30 &&
+                girl.x + girl.width > this.x - 30 &&
+                girl.y < this.y + this.height + 30 &&
+                girl.y + girl.height > this.y - 30) {
+                ctx.fillStyle = 'yellow';
+                ctx.font = '10px Arial';
+                ctx.fillText('Walk close to throw away trash!', this.x + this.width/2, this.y - 20);
+            }
+        },
+        
+        hasTrashInHand: function() {
+            return girl.heldItem && girl.heldItem.type === 'trash';
+        },
+        
+        checkTrashDisposal: function() {
+            if (this.hasTrashInHand() &&
+                girl.x < this.x + this.width + 20 &&
+                girl.x + girl.width > this.x - 20 &&
+                girl.y < this.y + this.height + 20 &&
+                girl.y + girl.height > this.y - 20) {
+                
+                const trashItem = girl.heldItem;
+                girl.heldItem = null;
+                
+                // Smell reactions when throwing away
+                const reactions = {
+                    high: ['Yuck! That smells awful! 🤮', 'So gross! 🤢', 'Ew, so stinky! 😷'],
+                    medium: ['Ugh, smells bad! 😷', 'Not pleasant at all! 🙄', 'Glad to get rid of that!'],
+                    low: ['Good, all clean now!', 'Much better!', 'Trash disposed properly! ♻️']
+                };
+                
+                const reactionList = reactions[trashItem.smell] || reactions.low;
+                const reaction = reactionList[Math.floor(Math.random() * reactionList.length)];
+                speechBubble.show(reaction);
+                
+                // Show disposal animation
+                this.showDisposalAnimation();
+            }
+        },
+        
+        showDisposalAnimation: function() {
+            // Simple animation - show some sparkles
+            for (let i = 0; i < 3; i++) {
+                setTimeout(() => {
+                    // This would need to be integrated with the game loop for proper animation
+                    // For now, just the speech bubble provides feedback
+                }, i * 200);
+            }
+        }
+    };
+
+    const catItems = {
+        catFood: {
+            x: 100,
+            y: 150,
+            width: 25,
+            height: 25,
+            taken: false,
+            
+            draw: function(ctx) {
+                if (!this.taken) {
+                    if (game.images.catFood && game.images.catFood.loaded) {
+                        ctx.drawImage(game.images.catFood.img, this.x, this.y, this.width, this.height);
+                    } else {
+                        // Fallback to emoji
+                        ctx.font = '25px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('🥫', this.x + this.width/2, this.y + this.height);
+                    }
+                }
+            },
+            
+            interact: function() {
+                if (!this.taken && 
+                    girl.x < this.x + this.width + 10 &&
+                    girl.x + girl.width > this.x - 10 &&
+                    girl.y < this.y + this.height + 10 &&
+                    girl.y + girl.height > this.y - 10) {
+                    this.taken = true;
+                    const catFoodItem = {name: 'Cat Food', type: 'cat_item', icon: '🥫'};
+                    handInventory.pickupItem(catFoodItem);
+                }
+            }
+        },
+        
+        milk: {
+            x: 200,
+            y: 150,
+            width: 25,
+            height: 25,
+            taken: false,
+            
+            draw: function(ctx) {
+                if (!this.taken) {
+                    if (game.images.milk && game.images.milk.loaded) {
+                        ctx.drawImage(game.images.milk.img, this.x, this.y, this.width, this.height);
+                    } else {
+                        // Fallback to emoji
+                        ctx.font = '25px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('🥛', this.x + this.width/2, this.y + this.height);
+                    }
+                }
+            },
+            
+            interact: function() {
+                if (!this.taken && 
+                    girl.x < this.x + this.width + 10 &&
+                    girl.x + girl.width > this.x - 10 &&
+                    girl.y < this.y + this.height + 10 &&
+                    girl.y + girl.height > this.y - 10) {
+                    this.taken = true;
+                    const milkItem = {name: 'Milk', type: 'cat_item', icon: '🥛'};
+                    handInventory.pickupItem(milkItem);
+                }
+            }
+        },
+        
+        ballToy: {
+            x: 300,
+            y: 180,
+            width: 20,
+            height: 20,
+            taken: false,
+            
+            draw: function(ctx) {
+                if (!this.taken) {
+                    if (game.images.ballToy && game.images.ballToy.loaded) {
+                        ctx.drawImage(game.images.ballToy.img, this.x, this.y, this.width, this.height);
+                    } else {
+                        // Fallback to emoji
+                        ctx.font = '20px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('⚽', this.x + this.width/2, this.y + this.height);
+                    }
+                }
+            },
+            
+            interact: function() {
+                if (!this.taken && 
+                    girl.x < this.x + this.width + 10 &&
+                    girl.x + girl.width > this.x - 10 &&
+                    girl.y < this.y + this.height + 10 &&
+                    girl.y + girl.height > this.y - 10) {
+                    this.taken = true;
+                    const toyItem = {name: 'Ball Toy', type: 'cat_toy', icon: '⚽'};
+                    handInventory.pickupItem(toyItem);
+                }
+            }
+        },
+        
+        featherToy: {
+            x: 350,
+            y: 180,
+            width: 20,
+            height: 20,
+            taken: false,
+            
+            draw: function(ctx) {
+                if (!this.taken) {
+                    if (game.images.featherToy && game.images.featherToy.loaded) {
+                        ctx.drawImage(game.images.featherToy.img, this.x, this.y, this.width, this.height);
+                    } else {
+                        // Fallback to emoji
+                        ctx.font = '20px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('🪶', this.x + this.width/2, this.y + this.height);
+                    }
+                }
+            },
+            
+            interact: function() {
+                if (!this.taken && 
+                    girl.x < this.x + this.width + 10 &&
+                    girl.x + girl.width > this.x - 10 &&
+                    girl.y < this.y + this.height + 10 &&
+                    girl.y + girl.height > this.y - 10) {
+                    this.taken = true;
+                    const toyItem = {name: 'Feather Toy', type: 'cat_toy', icon: '🪶'};
+                    handInventory.pickupItem(toyItem);
                 }
             }
         }
@@ -680,27 +1816,57 @@
             this.speaker = chicken;
         },
 
+        showForKitten: function(text) {
+            this.text = text;
+            this.visible = true;
+            this.startTime = Date.now();
+            this.speaker = kitten;
+        },
+
+        showForMamaCat: function(text) {
+            this.text = text;
+            this.visible = true;
+            this.startTime = Date.now();
+            this.speaker = mamaCat;
+        },
+
         draw: function(ctx) {
             if (this.visible && this.speaker) {
                 const currentTime = Date.now();
                 if (currentTime - this.startTime < this.duration) {
                     const centerX = this.speaker.x + this.speaker.width / 2;
                     const bubbleY = this.speaker.y - 50;
-                    const textY = this.speaker.y - 45;
                     
+                    // Measure text to determine bubble size
+                    ctx.font = '14px Arial';
+                    const textMetrics = ctx.measureText(this.text);
+                    const textWidth = textMetrics.width;
+                    const bubbleWidth = Math.max(textWidth + 20, 60); // Min width of 60
+                    const bubbleHeight = 30;
+                    const textY = bubbleY + 5;
+                    
+                    // Draw bubble background with border
                     ctx.fillStyle = 'white';
-                    ctx.beginPath();
-                    ctx.moveTo(centerX, bubbleY + 40);
-                    ctx.lineTo(centerX - 5, bubbleY + 30);
-                    ctx.lineTo(centerX + 5, bubbleY + 30);
-                    ctx.fill();
+                    ctx.strokeStyle = 'black';
+                    ctx.lineWidth = 2;
                     
+                    // Speech bubble tail
                     ctx.beginPath();
-                    ctx.ellipse(centerX, bubbleY, 40, 30, 0, 0, Math.PI * 2);
+                    ctx.moveTo(centerX, bubbleY + bubbleHeight);
+                    ctx.lineTo(centerX - 8, bubbleY + bubbleHeight - 5);
+                    ctx.lineTo(centerX + 8, bubbleY + bubbleHeight - 5);
                     ctx.fill();
+                    ctx.stroke();
                     
+                    // Main bubble
+                    ctx.beginPath();
+                    ctx.roundRect(centerX - bubbleWidth/2, bubbleY - bubbleHeight/2, bubbleWidth, bubbleHeight, 15);
+                    ctx.fill();
+                    ctx.stroke();
+                    
+                    // Draw text
                     ctx.fillStyle = 'black';
-                    ctx.font = '16px Arial';
+                    ctx.font = '14px Arial';
                     ctx.textAlign = 'center';
                     ctx.fillText(this.text, centerX, textY);
                 } else {
@@ -733,9 +1899,6 @@
             waffleReady: false
         },
 
-        girl: {
-            carriedIngredient: null
-        },
 
         waffleRecipe: {
             name: 'Waffles',
@@ -750,7 +1913,6 @@
             this.waffleMaker.hasBatter = false;
             this.waffleMaker.cooking = false;
             this.waffleMaker.waffleReady = false;
-            this.girl.carriedIngredient = null;
             this.waffleRecipe.completed = false;
         },
 
@@ -766,37 +1928,57 @@
             }
         },
 
+        getIngredientIcon: function(name) {
+            const icons = {
+                'Flour': '🌾',
+                'Eggs': '🥚', 
+                'Milk': '🥛',
+                'Sugar': '🍯'
+            };
+            return icons[name] || '📦';
+        },
+
         interact: function() {
-            // Check ingredient pickup
-            if (!this.girl.carriedIngredient) {
-                this.ingredients.forEach(ingredient => {
-                    if (!ingredient.collected &&
-                        girl.x < ingredient.x + ingredient.width &&
-                        girl.x + girl.width > ingredient.x &&
-                        girl.y < ingredient.y + ingredient.height &&
-                        girl.y + girl.height > ingredient.y) {
-                        ingredient.collected = true;
-                        this.girl.carriedIngredient = ingredient;
-                        speechBubble.show(`Picked up ${ingredient.name}!`);
-                    }
-                });
+            // Check exit door first (highest priority)
+            if (this.checkExitDoor()) {
+                return;
             }
             
-            // Check mixing bowl interaction (separate from ingredient pickup)
+            // Check ingredient pickup
+            this.ingredients.forEach(ingredient => {
+                if (!ingredient.collected &&
+                    girl.x < ingredient.x + ingredient.width &&
+                    girl.x + girl.width > ingredient.x &&
+                    girl.y < ingredient.y + ingredient.height &&
+                    girl.y + girl.height > ingredient.y) {
+                    ingredient.collected = true;
+                    
+                    // Add to hand/inventory system
+                    const ingredientItem = {
+                        name: ingredient.name, 
+                        type: 'ingredient', 
+                        icon: this.getIngredientIcon(ingredient.name)
+                    };
+                    handInventory.pickupItem(ingredientItem);
+                }
+            });
+            
+            // Check mixing bowl interaction
             if (girl.x < this.mixingBowl.x + this.mixingBowl.width &&
                 girl.x + girl.width > this.mixingBowl.x &&
                 girl.y < this.mixingBowl.y + this.mixingBowl.height &&
                 girl.y + girl.height > this.mixingBowl.y) {
                 
-                if (this.girl.carriedIngredient) {
-                    this.mixingBowl.ingredients.push(this.girl.carriedIngredient.name);
-                    speechBubble.show(`Added ${this.girl.carriedIngredient.name} to bowl!`);
-                    this.girl.carriedIngredient = null;
+                // Check if girl has an ingredient in hand
+                if (girl.heldItem && girl.heldItem.type === 'ingredient') {
+                    this.mixingBowl.ingredients.push(girl.heldItem.name);
+                    speechBubble.show(`Added ${girl.heldItem.name} to bowl!`);
+                    girl.heldItem = null; // Remove from hand
                     return; // Exit after adding ingredient
-                } 
+                }
                 
                 // Try to mix if not carrying anything
-                if (!this.girl.carriedIngredient && !this.mixingBowl.mixed) {
+                if (!girl.heldItem && !this.mixingBowl.mixed) {
                     if (this.mixingBowl.ingredients.length >= this.waffleRecipe.ingredients.length) {
                         const hasAllIngredients = this.waffleRecipe.ingredients.every(ing => 
                             this.mixingBowl.ingredients.includes(ing)
@@ -860,9 +2042,16 @@
                     ctx.strokeStyle = '#333';
                     ctx.strokeRect(ingredient.x, ingredient.y, ingredient.width, ingredient.height);
                     
+                    // Draw emoji icon
+                    ctx.font = '24px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(this.getIngredientIcon(ingredient.name), 
+                                ingredient.x + ingredient.width/2, 
+                                ingredient.y + ingredient.height/2 + 8);
+                    
+                    // Draw name label
                     ctx.fillStyle = 'black';
                     ctx.font = '10px Arial';
-                    ctx.textAlign = 'center';
                     ctx.fillText(ingredient.name, ingredient.x + ingredient.width/2, ingredient.y - 5);
                 }
             });
@@ -909,14 +2098,8 @@
             ctx.textAlign = 'center';
             ctx.fillText('WAFFLE MAKER', this.waffleMaker.x + this.waffleMaker.width/2, this.waffleMaker.y - 10);
 
-            // Draw carried ingredient above girl
-            if (this.girl.carriedIngredient) {
-                const ingredient = this.girl.carriedIngredient;
-                ctx.fillStyle = ingredient.color;
-                ctx.fillRect(girl.x + 10, girl.y - 20, 30, 30);
-                ctx.strokeStyle = '#333';
-                ctx.strokeRect(girl.x + 10, girl.y - 20, 30, 30);
-            }
+            // Draw exit door
+            this.drawExitDoor(ctx);
 
             // Draw waffle recipe status
             ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
@@ -957,6 +2140,62 @@
                 ctx.fillStyle = 'green';
                 ctx.fillText('✓ Batter ready!', 565, 200 + this.mixingBowl.ingredients.length * 12);
             }
+        },
+        
+        drawExitDoor: function(ctx) {
+            const doorX = 10;
+            const doorY = 350;
+            const doorWidth = 50;
+            const doorHeight = 100;
+            
+            // Door frame
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(doorX, doorY, doorWidth, doorHeight);
+            
+            // Door panel
+            ctx.fillStyle = '#D2691E';
+            ctx.fillRect(doorX + 5, doorY + 5, doorWidth - 10, doorHeight - 10);
+            
+            // Door handle
+            ctx.fillStyle = 'gold';
+            ctx.beginPath();
+            ctx.arc(doorX + doorWidth - 10, doorY + doorHeight/2, 2, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Exit label
+            ctx.fillStyle = 'white';
+            ctx.font = '8px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('🏠 EXIT', doorX + doorWidth/2, doorY - 5);
+            
+            // Interaction hint when nearby
+            if (girl.x < 80 && girl.y > 300) {
+                ctx.fillStyle = 'yellow';
+                ctx.font = '10px Arial';
+                ctx.fillText('← Walk left to exit', doorX + doorWidth/2, doorY - 15);
+                ctx.fillText('or press SPACE', doorX + doorWidth/2, doorY - 5);
+            }
+        },
+        
+        checkExitDoor: function() {
+            // Alternative exit method using space key near door
+            const doorX = 10;
+            const doorY = 350;
+            const doorWidth = 50;
+            const doorHeight = 100;
+            
+            if (girl.x < doorX + doorWidth + 20 &&
+                girl.x + girl.width > doorX - 10 &&
+                girl.y < doorY + doorHeight &&
+                girl.y + girl.height > doorY &&
+                input.spacePressed) {
+                game.currentScene = 'indoor';
+                girl.x = kitchenDoor.x + kitchenDoor.width + 5;
+                girl.y = kitchenDoor.y + 20;
+                input.spacePressed = false;
+                return true;
+            }
+            return false;
         }
     };
 
@@ -986,6 +2225,8 @@
         girl: {
             peeing: false,
             peeProgress: 0,
+            pooping: false,
+            poopProgress: 0,
             bathing: false,
             bathProgress: 0,
             washingHands: false,
@@ -1002,6 +2243,8 @@
             this.toiletPaper.rolls = 3;
             this.girl.peeing = false;
             this.girl.peeProgress = 0;
+            this.girl.pooping = false;
+            this.girl.poopProgress = 0;
             this.girl.bathing = false;
             this.girl.bathProgress = 0;
             this.girl.washingHands = false;
@@ -1018,12 +2261,30 @@
                     this.girl.peeing = false;
                     this.girl.peeProgress = 0;
                     girl.needsBathroom = 0;
-                    speechBubble.show('Done! Now I need toilet paper.');
+                    girl.handsClean = false; // Hands dirty after using toilet
+                    speechBubble.show('Done peeing! Now I need toilet paper.');
                 }
             } else if (this.girl.peeing) {
                 // Stop peeing if space not held
                 this.girl.peeing = false;
                 this.girl.peeProgress = 0;
+                speechBubble.show('Hold space to finish!');
+            }
+
+            // Update pooping progress
+            if (this.girl.pooping && input.spacePressed) {
+                this.girl.poopProgress += 1.5; // Slower than peeing
+                if (this.girl.poopProgress >= 100) {
+                    this.girl.pooping = false;
+                    this.girl.poopProgress = 0;
+                    girl.needsPoop = 0;
+                    girl.handsClean = false; // Hands dirty after using toilet
+                    speechBubble.show('Done pooping! Definitely need toilet paper now.');
+                }
+            } else if (this.girl.pooping) {
+                // Stop pooping if space not held
+                this.girl.pooping = false;
+                this.girl.poopProgress = 0;
                 speechBubble.show('Hold space to finish!');
             }
 
@@ -1085,8 +2346,13 @@
         },
 
         interact: function() {
+            // Check exit door first (highest priority)
+            if (this.checkExitDoor()) {
+                return;
+            }
+            
             // Don't start new interactions if already doing something
-            if (this.girl.peeing || this.girl.bathing || this.girl.washingHands || this.girl.usingToiletPaper) {
+            if (this.girl.peeing || this.girl.pooping || this.girl.bathing || this.girl.washingHands || this.girl.usingToiletPaper) {
                 return;
             }
 
@@ -1112,7 +2378,23 @@
                 girl.y < this.toilet.y + this.toilet.height &&
                 girl.y + girl.height > this.toilet.y) {
                 
-                if (girl.needsBathroom > 20) {
+                // Check what kind of bathroom need is most urgent
+                if (girl.needsPoop > 30 && girl.needsBathroom > 20) {
+                    // Both needs - let user choose or default to poop (more urgent)
+                    if (girl.needsPoop > girl.needsBathroom) {
+                        this.girl.pooping = true;
+                        this.girl.poopProgress = 0;
+                        speechBubble.show('Hold space to poop!');
+                    } else {
+                        this.girl.peeing = true;
+                        this.girl.peeProgress = 0;
+                        speechBubble.show('Hold space to pee!');
+                    }
+                } else if (girl.needsPoop > 30) {
+                    this.girl.pooping = true;
+                    this.girl.poopProgress = 0;
+                    speechBubble.show('Hold space to poop!');
+                } else if (girl.needsBathroom > 20) {
                     this.girl.peeing = true;
                     this.girl.peeProgress = 0;
                     speechBubble.show('Hold space to pee!');
@@ -1266,18 +2548,24 @@
             if (this.girl.peeing && this.girl.peeProgress > 0) {
                 this.drawProgressBar(ctx, 50, 50, this.girl.peeProgress, 'Peeing...');
             }
+            if (this.girl.pooping && this.girl.poopProgress > 0) {
+                this.drawProgressBar(ctx, 50, 80, this.girl.poopProgress, 'Pooping...');
+            }
             if (this.girl.bathing && this.girl.bathProgress > 0) {
-                this.drawProgressBar(ctx, 50, 80, this.girl.bathProgress/2, 'Bathing...'); // /2 because bath takes 200
+                this.drawProgressBar(ctx, 50, 110, this.girl.bathProgress/2, 'Bathing...'); // /2 because bath takes 200
             }
             if (this.girl.washingHands && this.girl.washProgress > 0) {
-                this.drawProgressBar(ctx, 50, 110, this.girl.washProgress, 'Washing hands...');
+                this.drawProgressBar(ctx, 50, 140, this.girl.washProgress, 'Washing hands...');
             }
             if (this.girl.usingToiletPaper && this.girl.wipingProgress > 0) {
-                this.drawProgressBar(ctx, 50, 140, this.girl.wipingProgress, 'Using toilet paper...');
+                this.drawProgressBar(ctx, 50, 170, this.girl.wipingProgress, 'Using toilet paper...');
             }
 
             // Draw hygiene status
             this.drawHygieneStatus(ctx);
+            
+            // Draw exit door
+            this.drawExitDoor(ctx);
         },
 
         drawProgressBar: function(ctx, x, y, progress, label) {
@@ -1297,9 +2585,9 @@
 
         drawHygieneStatus: function(ctx) {
             ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-            ctx.fillRect(600, 50, 180, 170);
+            ctx.fillRect(600, 50, 180, 190);
             ctx.strokeStyle = '#333';
-            ctx.strokeRect(600, 50, 180, 170);
+            ctx.strokeRect(600, 50, 180, 190);
             
             ctx.fillStyle = 'black';
             ctx.font = '14px Arial';
@@ -1313,21 +2601,81 @@
             ctx.fillStyle = girl.dirtiness > 50 ? 'red' : (girl.dirtiness > 25 ? 'orange' : 'green');
             ctx.fillText(`Cleanliness: ${Math.max(0, 100 - girl.dirtiness)}%`, 610, 90);
             
-            // Bathroom need
+            // Pee need
             ctx.fillStyle = girl.needsBathroom > 75 ? 'red' : (girl.needsBathroom > 50 ? 'orange' : 'green');
-            ctx.fillText(`Bathroom need: ${Math.round(girl.needsBathroom)}%`, 610, 110);
+            ctx.fillText(`Pee need: ${Math.round(girl.needsBathroom)}%`, 610, 110);
+            
+            // Poop need
+            ctx.fillStyle = girl.needsPoop > 75 ? 'red' : (girl.needsPoop > 50 ? 'orange' : 'green');
+            ctx.fillText(`Poop need: ${Math.round(girl.needsPoop)}%`, 610, 130);
             
             // Hand cleanliness
             ctx.fillStyle = girl.handsClean ? 'green' : 'red';
-            ctx.fillText(`Hands: ${girl.handsClean ? 'Clean' : 'Dirty'}`, 610, 130);
+            ctx.fillText(`Hands: ${girl.handsClean ? 'Clean' : 'Dirty'}`, 610, 150);
             
             // Soap availability
             ctx.fillStyle = this.sink.hasSoap ? 'green' : 'red';
-            ctx.fillText(`Soap: ${this.sink.hasSoap ? 'Available' : 'Empty'}`, 610, 150);
+            ctx.fillText(`Soap: ${this.sink.hasSoap ? 'Available' : 'Empty'}`, 610, 170);
             
             // Toilet paper availability
             ctx.fillStyle = this.toiletPaper.rolls > 0 ? 'green' : 'red';
-            ctx.fillText(`Toilet Paper: ${this.toiletPaper.rolls} rolls`, 610, 170);
+            ctx.fillText(`Toilet Paper: ${this.toiletPaper.rolls} rolls`, 610, 190);
+        },
+        
+        drawExitDoor: function(ctx) {
+            const doorX = 10;
+            const doorY = 350;
+            const doorWidth = 50;
+            const doorHeight = 100;
+            
+            // Door frame
+            ctx.fillStyle = '#4169E1';
+            ctx.fillRect(doorX, doorY, doorWidth, doorHeight);
+            
+            // Door panel
+            ctx.fillStyle = '#87CEEB';
+            ctx.fillRect(doorX + 5, doorY + 5, doorWidth - 10, doorHeight - 10);
+            
+            // Door handle
+            ctx.fillStyle = 'chrome';
+            ctx.beginPath();
+            ctx.arc(doorX + doorWidth - 10, doorY + doorHeight/2, 2, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Exit label
+            ctx.fillStyle = 'white';
+            ctx.font = '8px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('🏠 EXIT', doorX + doorWidth/2, doorY - 5);
+            
+            // Interaction hint when nearby
+            if (girl.x < 80 && girl.y > 300) {
+                ctx.fillStyle = 'yellow';
+                ctx.font = '10px Arial';
+                ctx.fillText('← Walk left to exit', doorX + doorWidth/2, doorY - 15);
+                ctx.fillText('or press SPACE', doorX + doorWidth/2, doorY - 5);
+            }
+        },
+        
+        checkExitDoor: function() {
+            // Alternative exit method using space key near door
+            const doorX = 10;
+            const doorY = 350;
+            const doorWidth = 50;
+            const doorHeight = 100;
+            
+            if (girl.x < doorX + doorWidth + 20 &&
+                girl.x + girl.width > doorX - 10 &&
+                girl.y < doorY + doorHeight &&
+                girl.y + girl.height > doorY &&
+                input.spacePressed) {
+                game.currentScene = 'indoor';
+                girl.x = bathroomDoor.x + bathroomDoor.width + 5;
+                girl.y = bathroomDoor.y + 20;
+                input.spacePressed = false;
+                return true;
+            }
+            return false;
         }
     };
 
@@ -1499,6 +2847,89 @@
         }
     };
 
+    const handInventory = {
+        // Move item from ground/world to hand or inventory
+        pickupItem: function(item) {
+            if (!girl.heldItem) {
+                // Put in hand if empty
+                girl.heldItem = item;
+                speechBubble.show(`Picked up ${item.name}! ${item.icon}`);
+            } else if (girl.inventory.length < girl.maxInventorySize) {
+                // Put in inventory if hand is full
+                girl.inventory.push(item);
+                speechBubble.show(`Added ${item.name} to inventory! ${item.icon}`);
+            } else {
+                speechBubble.show('Hand and inventory full!');
+                return false;
+            }
+            return true;
+        },
+
+        // Move item from hand to inventory
+        storeHeldItem: function() {
+            if (!girl.heldItem) {
+                speechBubble.show('Nothing in hand!');
+                return false;
+            }
+            
+            if (girl.inventory.length >= girl.maxInventorySize) {
+                speechBubble.show('Inventory full!');
+                return false;
+            }
+            
+            girl.inventory.push(girl.heldItem);
+            speechBubble.show(`Stored ${girl.heldItem.name} in inventory`);
+            girl.heldItem = null;
+            return true;
+        },
+
+        // Move item from inventory slot to hand
+        takeFromInventory: function(index) {
+            if (index < 0 || index >= girl.inventory.length) {
+                speechBubble.show('Invalid inventory slot!');
+                return false;
+            }
+            
+            const item = girl.inventory[index];
+            
+            if (girl.heldItem) {
+                // Swap items
+                girl.inventory[index] = girl.heldItem;
+                girl.heldItem = item;
+                speechBubble.show(`Swapped ${item.name} with ${girl.inventory[index].name}`);
+            } else {
+                // Take item to hand
+                girl.inventory.splice(index, 1);
+                girl.heldItem = item;
+                speechBubble.show(`Took ${item.name} from inventory`);
+            }
+            return true;
+        },
+
+        // Drop held item (remove from game)
+        dropHeldItem: function() {
+            if (!girl.heldItem) {
+                speechBubble.show('Nothing to drop!');
+                return false;
+            }
+            
+            speechBubble.show(`Dropped ${girl.heldItem.name}`);
+            girl.heldItem = null;
+            return true;
+        },
+
+        // Quick access to take first item of a type from inventory
+        takeItemByName: function(name) {
+            const index = girl.inventory.findIndex(item => item.name === name);
+            if (index !== -1) {
+                return this.takeFromInventory(index);
+            } else {
+                speechBubble.show(`No ${name} in inventory!`);
+                return false;
+            }
+        }
+    };
+
     const inventory = {
         isOpen: false,
         
@@ -1526,9 +2957,40 @@
             return girl.inventory.some(item => item.name === itemName);
         },
 
+        updateHTML: function() {
+            // Update HTML sidebar instead of drawing on canvas
+            const handSlot = document.getElementById('handSlot');
+            if (handSlot) {
+                if (girl.heldItem) {
+                    handSlot.innerHTML = `${girl.heldItem.icon} ${girl.heldItem.name}`;
+                    handSlot.style.backgroundColor = '#ffffcc';
+                } else {
+                    handSlot.innerHTML = 'Empty';
+                    handSlot.style.backgroundColor = '#f5f5f5';
+                }
+            }
+            
+            // Update inventory slots
+            for (let i = 0; i < girl.maxInventorySize; i++) {
+                const slot = document.getElementById(`slot${i}`);
+                if (slot) {
+                    if (i < girl.inventory.length) {
+                        const item = girl.inventory[i];
+                        slot.innerHTML = `${item.icon}`;
+                        slot.title = `${item.name} (${item.type})`; // Tooltip
+                        slot.style.backgroundColor = '#e8f5e8';
+                    } else {
+                        slot.innerHTML = (i + 1).toString();
+                        slot.title = 'Empty slot';
+                        slot.style.backgroundColor = '#f5f5f5';
+                    }
+                }
+            }
+        },
+
         draw: function(ctx) {
             if (this.isOpen) {
-                // Inventory background
+                // Full inventory overlay
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
                 ctx.fillRect(50, 50, 300, 200);
                 
@@ -1609,6 +3071,17 @@
                 this.interact();
             } else if (e.key === 'i' || e.key === 'I') {
                 inventory.toggle();
+            } else if (e.key === 'h' || e.key === 'H') {
+                handInventory.storeHeldItem();
+            } else if (e.key === 'x' || e.key === 'X') {
+                handInventory.dropHeldItem();
+            } else if (e.key >= '1' && e.key <= '6') {
+                const index = parseInt(e.key) - 1;
+                handInventory.takeFromInventory(index);
+            } else if (e.key === 'c' || e.key === 'C') {
+                if (girl.carryingChicken) {
+                    girl.dropChicken();
+                }
             }
         },
 
@@ -1633,7 +3106,7 @@
                     items.cookie.interact();
                 }
             } else if (game.currentScene === 'outdoor') {
-                if (!friend.interact()) {
+                if (!houseEntrance.interact() && !friend.interact()) {
                     girl.interactWithChickens();
                 }
             } else if (game.currentScene === 'kitchen') {
@@ -1759,6 +3232,48 @@
             console.log('Girl really needs to use the bathroom!');
         },
 
+        addToInventory: function(name, type = 'item', icon = '📦') {
+            const item = { name, type, icon };
+            if (girl.inventory.length < girl.maxInventorySize) {
+                girl.inventory.push(item);
+                console.log(`Added ${name} ${icon} to inventory`);
+            } else {
+                console.log('Inventory full!');
+            }
+        },
+
+        clearInventory: function() {
+            girl.inventory = [];
+            console.log('Inventory cleared');
+        },
+
+        showInventory: function() {
+            console.log('=== INVENTORY ===');
+            console.log('Hand:', girl.heldItem ? `${girl.heldItem.icon} ${girl.heldItem.name}` : 'Empty');
+            console.log('Inventory:');
+            if (girl.inventory.length === 0) {
+                console.log('  Empty');
+            } else {
+                girl.inventory.forEach((item, i) => {
+                    console.log(`  ${i + 1}. ${item.icon} ${item.name} (${item.type})`);
+                });
+            }
+            console.log(`Slots: ${girl.inventory.length}/${girl.maxInventorySize}`);
+        },
+
+        giveItem: function(name, type = 'item', icon = '📦') {
+            const item = { name, type, icon };
+            girl.heldItem = item;
+            console.log(`Given ${name} ${icon} to hand`);
+        },
+
+        testHandSystem: function() {
+            console.log('Testing hand/inventory system...');
+            this.clearInventory();
+            this.giveItem('Test Apple', 'food', '🍎');
+            console.log('Try: H (store), X (drop), 1-6 (take from slot)');
+        },
+
         showHelp: function() {
             console.log('=== DEBUG COMMANDS ===');
             console.log('debug.logStatus() - Show current game status');
@@ -1773,6 +3288,9 @@
             console.log('debug.completeWaffle() - Instant waffle ready');
             console.log('debug.getDirty() - Make girl dirty');
             console.log('debug.makeUrgent() - Make bathroom urgent');
+            console.log('debug.addToInventory(name, type, icon) - Add item to inventory');
+            console.log('debug.clearInventory() - Clear all items');
+            console.log('debug.showInventory() - List all items');
             console.log('debug.showHelp() - Show this help');
         }
     };
