@@ -17,7 +17,14 @@
             catFood: { src: 'cat_food.png' }, // Optional
             milk: { src: 'milk.png' }, // Optional
             ballToy: { src: 'ball_toy.png' }, // Optional
-            featherToy: { src: 'feather_toy.png' } // Optional
+            featherToy: { src: 'feather_toy.png' }, // Optional
+            cereal: { src: 'cereal.png' }, // Optional
+            bowl: { src: 'bowl.png' }, // Optional
+            spoon: { src: 'spoon.png' }, // Optional
+            taxi: { src: 'taxi.png' }, // Optional
+            airplane: { src: 'airplane.png' }, // Optional
+            luggage: { src: 'luggage.png' }, // Optional
+            airport: { src: 'airport.png' } // Optional
         },
         imagesLoaded: 0,
         totalImages: 0,
@@ -31,7 +38,7 @@
         },
 
         loadImages: function() {
-            const optionalImages = ['kitten', 'mamaCat', 'catFood', 'milk', 'ballToy', 'featherToy'];
+            const optionalImages = ['kitten', 'mamaCat', 'catFood', 'milk', 'ballToy', 'featherToy', 'cereal', 'bowl', 'spoon', 'taxi', 'airplane', 'luggage', 'airport'];
             
             for (let key in this.images) {
                 this.images[key].img = new Image();
@@ -84,10 +91,13 @@
                 chickenCoop.checkChickenDelivery();
                 garbageCan.checkTrashDisposal();  // Check trash disposal
                 friend.update();
+                taxi.update();
             } else if (this.currentScene === 'kitchen') {
                 kitchen.update();
             } else if (this.currentScene === 'bathroom') {
                 bathroom.update();
+            } else if (this.currentScene === 'airport') {
+                airport.update();
             } else if (this.currentScene === 'indoor') {
                 kitten.update();
                 mamaCat.update();
@@ -130,11 +140,16 @@
                 chickenCoop.draw(this.ctx);
                 garbageCan.draw(this.ctx);  // Draw garbage can
                 friend.draw(this.ctx);
+                taxi.draw(this.ctx);
                 houseEntrance.draw(this.ctx);
             } else if (this.currentScene === 'kitchen') {
                 kitchen.draw(this.ctx);
             } else if (this.currentScene === 'bathroom') {
                 bathroom.draw(this.ctx);
+            } else if (this.currentScene === 'airport') {
+                airport.draw(this.ctx);
+            } else if (destinations[this.currentScene]) {
+                destinations[this.currentScene].draw(this.ctx);
             }
             girl.draw(this.ctx);
             speechBubble.draw(this.ctx);
@@ -554,6 +569,7 @@
         height: 100,
         speed: 5,
         carryingChicken: false,
+        carryingLuggage: null,
         dirtiness: 0, // 0-100, 100 being very dirty
         needsBathroom: 0, // 0-100, 100 being urgent for pee
         needsPoop: 0, // 0-100, 100 being urgent for poop
@@ -592,6 +608,31 @@
 
         draw: function(ctx) {
             ctx.drawImage(game.images.girl.img, this.x, this.y, this.width, this.height);
+            
+            // Draw carried luggage
+            if (this.carryingLuggage) {
+                const bag = this.carryingLuggage;
+                const bagX = this.x - 10;
+                const bagY = this.y + this.height - bag.height - 10;
+                
+                if (game.images.luggage && game.images.luggage.loaded) {
+                    ctx.drawImage(game.images.luggage.img, bagX, bagY, bag.width * 0.8, bag.height * 0.8);
+                } else {
+                    // Draw programmatic luggage
+                    ctx.fillStyle = bag.color;
+                    ctx.fillRect(bagX, bagY, bag.width * 0.8, bag.height * 0.8);
+                    ctx.strokeStyle = '#333';
+                    ctx.strokeRect(bagX, bagY, bag.width * 0.8, bag.height * 0.8);
+                    
+                    // Handle
+                    ctx.strokeStyle = '#666';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(bagX + 3, bagY);
+                    ctx.lineTo(bagX + bag.width * 0.8 - 3, bagY);
+                    ctx.stroke();
+                }
+            }
             
             // Draw held item next to girl
             if (this.heldItem) {
@@ -1661,6 +1702,127 @@
         }
     };
 
+    const taxi = {
+        x: 600,
+        y: 300,
+        width: 100,
+        height: 60,
+        called: false,
+        arrived: false,
+        arrivalTimer: 0,
+        
+        draw: function(ctx) {
+            if (!this.called) {
+                // Draw taxi call button/sign
+                ctx.fillStyle = '#FFD700';
+                ctx.fillRect(this.x, this.y, 80, 40);
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(this.x, this.y, 80, 40);
+                
+                ctx.fillStyle = 'black';
+                ctx.font = '14px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('CALL TAXI', this.x + 40, this.y + 25);
+            } else if (this.arrived) {
+                // Draw the taxi - try image first, then programmatic
+                if (game.images.taxi && game.images.taxi.loaded) {
+                    ctx.drawImage(game.images.taxi.img, this.x - 20, this.y - 20, this.width, this.height);
+                } else {
+                    // Draw programmatic taxi
+                    // Car body
+                    ctx.fillStyle = '#FFD700';
+                    ctx.fillRect(this.x - 20, this.y - 10, this.width, this.height - 20);
+                    
+                    // Roof
+                    ctx.fillStyle = '#FFA500';
+                    ctx.fillRect(this.x, this.y - 20, this.width - 40, 20);
+                    
+                    // Windows
+                    ctx.fillStyle = '#87CEEB';
+                    ctx.fillRect(this.x + 5, this.y - 15, 25, 15);
+                    ctx.fillRect(this.x + 35, this.y - 15, 25, 15);
+                    
+                    // Wheels
+                    ctx.fillStyle = '#333';
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y + 30, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(this.x + 60, this.y + 30, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // TAXI sign
+                    ctx.fillStyle = 'black';
+                    ctx.font = '12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('TAXI', this.x + 30, this.y + 5);
+                }
+                
+                // Show interaction hint
+                if (girl.x < this.x + this.width + 30 &&
+                    girl.x + girl.width > this.x - 30 &&
+                    girl.y < this.y + this.height + 30 &&
+                    girl.y + girl.height > this.y - 30) {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                    ctx.fillRect(this.x - 10, this.y - 40, 120, 20);
+                    ctx.fillStyle = 'black';
+                    ctx.font = '10px Arial';
+                    ctx.fillText('Press SPACE to enter', this.x + 50, this.y - 27);
+                }
+            } else {
+                // Taxi is on the way
+                ctx.fillStyle = 'white';
+                ctx.fillRect(this.x - 10, this.y - 10, 100, 30);
+                ctx.fillStyle = 'black';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                const dots = '.'.repeat((Math.floor(this.arrivalTimer / 30) % 3) + 1);
+                ctx.fillText(`Taxi arriving${dots}`, this.x + 40, this.y + 5);
+            }
+        },
+        
+        update: function() {
+            if (this.called && !this.arrived) {
+                this.arrivalTimer++;
+                if (this.arrivalTimer >= 180) { // 3 seconds at 60fps
+                    this.arrived = true;
+                    speechBubble.show('Taxi has arrived! Press SPACE to get in.');
+                }
+            }
+        },
+        
+        interact: function() {
+            if (!this.called) {
+                // Check if girl is near the call button
+                if (girl.x < this.x + 80 &&
+                    girl.x + girl.width > this.x &&
+                    girl.y < this.y + 40 &&
+                    girl.y + girl.height > this.y) {
+                    this.called = true;
+                    this.arrivalTimer = 0;
+                    speechBubble.show('Calling taxi... Please wait.');
+                }
+            } else if (this.arrived) {
+                // Check if girl is near the taxi
+                if (girl.x < this.x + this.width &&
+                    girl.x + girl.width > this.x - 20 &&
+                    girl.y < this.y + this.height &&
+                    girl.y + girl.height > this.y - 20) {
+                    // Transport to airport
+                    game.currentScene = 'airport';
+                    girl.x = 100;
+                    girl.y = 300;
+                    speechBubble.show('Welcome to the airport!');
+                    // Reset taxi for when we come back
+                    this.called = false;
+                    this.arrived = false;
+                    this.arrivalTimer = 0;
+                }
+            }
+        }
+    };
+
     const catItems = {
         catFood: {
             x: 100,
@@ -1881,7 +2043,10 @@
             { name: 'Flour', x: 100, y: 80, width: 40, height: 40, collected: false, color: '#F5F5DC' },
             { name: 'Eggs', x: 200, y: 80, width: 40, height: 40, collected: false, color: '#FFFACD' },
             { name: 'Milk', x: 300, y: 80, width: 40, height: 40, collected: false, color: '#FFFFFF' },
-            { name: 'Sugar', x: 400, y: 80, width: 40, height: 40, collected: false, color: '#F0F8FF' }
+            { name: 'Sugar', x: 400, y: 80, width: 40, height: 40, collected: false, color: '#F0F8FF' },
+            { name: 'Cereal', x: 500, y: 80, width: 40, height: 50, collected: false, color: '#D2691E' },
+            { name: 'Bowl', x: 550, y: 200, width: 50, height: 30, collected: false, color: '#E6E6FA' },
+            { name: 'Spoon', x: 610, y: 200, width: 30, height: 40, collected: false, color: '#C0C0C0' }
         ],
         
         mixingBowl: {
@@ -1906,6 +2071,18 @@
             completed: false
         },
 
+        cerealBowl: {
+            x: 250, y: 300, width: 60, height: 40,
+            hasItems: [],
+            complete: false
+        },
+
+        cerealRecipe: {
+            name: 'Cereal Breakfast',
+            ingredients: ['Cereal', 'Milk', 'Bowl', 'Spoon'],
+            completed: false
+        },
+
         init: function() {
             this.ingredients.forEach(ing => ing.collected = false);
             this.mixingBowl.ingredients = [];
@@ -1914,6 +2091,9 @@
             this.waffleMaker.cooking = false;
             this.waffleMaker.waffleReady = false;
             this.waffleRecipe.completed = false;
+            this.cerealBowl.hasItems = [];
+            this.cerealBowl.complete = false;
+            this.cerealRecipe.completed = false;
         },
 
         update: function() {
@@ -1933,7 +2113,10 @@
                 'Flour': '🌾',
                 'Eggs': '🥚', 
                 'Milk': '🥛',
-                'Sugar': '🍯'
+                'Sugar': '🍯',
+                'Cereal': '🥣',
+                'Bowl': '🍜',
+                'Spoon': '🥄'
             };
             return icons[name] || '📦';
         },
@@ -2007,8 +2190,11 @@
                 
                 if (this.waffleMaker.waffleReady) {
                     this.waffleMaker.waffleReady = false;
-                    this.waffleRecipe.completed = true;
-                    speechBubble.show('Got the waffle!');
+                    this.waffleRecipe.completed = false;  // Reset so you can make more
+                    speechBubble.show('Yummy waffle! Delicious! 🧇😋');
+                    
+                    // Optional: Add some visual effect or score
+                    girl.health = Math.min((girl.health || 100) + 25, 100);
                 } else if (this.mixingBowl.mixed && !this.waffleMaker.hasBatter && !this.waffleMaker.cooking) {
                     this.waffleMaker.hasBatter = true;
                     this.waffleMaker.cooking = true;
@@ -2016,6 +2202,49 @@
                     this.mixingBowl.ingredients = [];
                     this.mixingBowl.mixed = false;
                     speechBubble.show('Cooking waffle...');
+                }
+            }
+
+            // Check cereal bowl interaction
+            if (girl.x < this.cerealBowl.x + this.cerealBowl.width &&
+                girl.x + girl.width > this.cerealBowl.x &&
+                girl.y < this.cerealBowl.y + this.cerealBowl.height &&
+                girl.y + girl.height > this.cerealBowl.y) {
+                
+                // If cereal is complete and ready, eat it!
+                if (this.cerealBowl.complete && !girl.heldItem) {
+                    this.cerealBowl.complete = false;
+                    this.cerealBowl.hasItems = [];
+                    this.cerealRecipe.completed = false;
+                    speechBubble.show('Yum! That was a delicious breakfast! 🥣😋');
+                    
+                    // Optional: Add some visual effect or score
+                    girl.health = Math.min((girl.health || 100) + 20, 100);
+                    return;
+                }
+                
+                // Check if girl has a cereal-related item in hand
+                if (girl.heldItem && ['Cereal', 'Milk', 'Bowl', 'Spoon'].includes(girl.heldItem.name)) {
+                    if (!this.cerealBowl.hasItems.includes(girl.heldItem.name)) {
+                        this.cerealBowl.hasItems.push(girl.heldItem.name);
+                        speechBubble.show(`Added ${girl.heldItem.name} to breakfast area!`);
+                        girl.heldItem = null; // Remove from hand
+                        
+                        // Check if all items are present
+                        if (this.cerealBowl.hasItems.length === 4) {
+                            const hasAllItems = this.cerealRecipe.ingredients.every(ing => 
+                                this.cerealBowl.hasItems.includes(ing)
+                            );
+                            
+                            if (hasAllItems) {
+                                this.cerealBowl.complete = true;
+                                this.cerealRecipe.completed = true;
+                                speechBubble.show('Cereal breakfast is ready! Press SPACE to eat! 🥣');
+                            }
+                        }
+                    } else {
+                        speechBubble.show(`${girl.heldItem.name} is already there!`);
+                    }
                 }
             }
         },
@@ -2037,21 +2266,29 @@
             // Draw ingredients
             this.ingredients.forEach(ingredient => {
                 if (!ingredient.collected) {
-                    ctx.fillStyle = ingredient.color;
-                    ctx.fillRect(ingredient.x, ingredient.y, ingredient.width, ingredient.height);
-                    ctx.strokeStyle = '#333';
-                    ctx.strokeRect(ingredient.x, ingredient.y, ingredient.width, ingredient.height);
-                    
-                    // Draw emoji icon
-                    ctx.font = '24px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(this.getIngredientIcon(ingredient.name), 
-                                ingredient.x + ingredient.width/2, 
-                                ingredient.y + ingredient.height/2 + 8);
+                    // Try to draw with image first, fallback to programmatic
+                    let imageKey = ingredient.name.toLowerCase();
+                    if (game.images[imageKey] && game.images[imageKey].loaded) {
+                        ctx.drawImage(game.images[imageKey].img, ingredient.x, ingredient.y, ingredient.width, ingredient.height);
+                    } else {
+                        // Fallback to programmatic rendering
+                        ctx.fillStyle = ingredient.color;
+                        ctx.fillRect(ingredient.x, ingredient.y, ingredient.width, ingredient.height);
+                        ctx.strokeStyle = '#333';
+                        ctx.strokeRect(ingredient.x, ingredient.y, ingredient.width, ingredient.height);
+                        
+                        // Draw emoji icon
+                        ctx.font = '24px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(this.getIngredientIcon(ingredient.name), 
+                                    ingredient.x + ingredient.width/2, 
+                                    ingredient.y + ingredient.height/2 + 8);
+                    }
                     
                     // Draw name label
                     ctx.fillStyle = 'black';
                     ctx.font = '10px Arial';
+                    ctx.textAlign = 'center';
                     ctx.fillText(ingredient.name, ingredient.x + ingredient.width/2, ingredient.y - 5);
                 }
             });
@@ -2098,47 +2335,109 @@
             ctx.textAlign = 'center';
             ctx.fillText('WAFFLE MAKER', this.waffleMaker.x + this.waffleMaker.width/2, this.waffleMaker.y - 10);
 
+            // Draw cereal bowl area
+            ctx.fillStyle = this.cerealBowl.complete ? '#90EE90' : '#FFE4E1';
+            ctx.fillRect(this.cerealBowl.x - 10, this.cerealBowl.y - 10, this.cerealBowl.width + 20, this.cerealBowl.height + 20);
+            ctx.strokeStyle = '#8B4513';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(this.cerealBowl.x - 10, this.cerealBowl.y - 10, this.cerealBowl.width + 20, this.cerealBowl.height + 20);
+            
+            // Draw cereal bowl items
+            if (this.cerealBowl.hasItems.includes('Bowl')) {
+                ctx.fillStyle = '#E6E6FA';
+                ctx.beginPath();
+                ctx.ellipse(this.cerealBowl.x + 30, this.cerealBowl.y + 20, 25, 15, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            }
+            if (this.cerealBowl.hasItems.includes('Cereal')) {
+                ctx.fillStyle = '#D2691E';
+                ctx.fillRect(this.cerealBowl.x + 20, this.cerealBowl.y + 10, 20, 15);
+            }
+            if (this.cerealBowl.hasItems.includes('Milk')) {
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(this.cerealBowl.x + 25, this.cerealBowl.y + 12, 10, 10);
+            }
+            if (this.cerealBowl.hasItems.includes('Spoon')) {
+                ctx.strokeStyle = '#C0C0C0';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(this.cerealBowl.x + 45, this.cerealBowl.y + 20);
+                ctx.lineTo(this.cerealBowl.x + 55, this.cerealBowl.y + 20);
+                ctx.stroke();
+            }
+            
+            ctx.fillStyle = 'black';
+            ctx.font = '10px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('CEREAL AREA', this.cerealBowl.x + this.cerealBowl.width/2, this.cerealBowl.y - 15);
+
             // Draw exit door
             this.drawExitDoor(ctx);
 
-            // Draw waffle recipe status
+            // Draw recipe status panel
             ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-            ctx.fillRect(550, 50, 220, 180);
+            ctx.fillRect(520, 50, 250, 320);
             ctx.strokeStyle = '#333';
-            ctx.strokeRect(550, 50, 220, 180);
+            ctx.strokeRect(520, 50, 250, 320);
             
             ctx.fillStyle = 'black';
             ctx.font = '16px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText('WAFFLE RECIPE', 660, 75);
+            ctx.fillText('RECIPES', 645, 75);
             
-            ctx.font = '12px Arial';
+            // Waffle Recipe
+            ctx.font = '14px Arial';
             ctx.textAlign = 'left';
             ctx.fillStyle = this.waffleRecipe.completed ? 'green' : 'blue';
-            ctx.fillText(`${this.waffleRecipe.name}${this.waffleRecipe.completed ? ' ✓' : ''}`, 560, 100);
+            ctx.fillText(`${this.waffleRecipe.name}${this.waffleRecipe.completed ? ' ✓' : ''}`, 530, 100);
             
-            // Show recipe ingredients
             ctx.fillStyle = 'black';
             ctx.font = '10px Arial';
-            ctx.fillText('Ingredients needed:', 560, 120);
+            ctx.fillText('Ingredients:', 530, 115);
             this.waffleRecipe.ingredients.forEach((ing, i) => {
                 const inBowl = this.mixingBowl.ingredients.includes(ing);
                 ctx.fillStyle = inBowl ? 'green' : 'gray';
-                ctx.fillText(`• ${ing}`, 565, 135 + i * 12);
+                ctx.fillText(`• ${ing}`, 535, 130 + i * 12);
             });
             
             // Show mixing bowl status
-            ctx.fillStyle = 'black';
-            ctx.fillText('Mixing Bowl:', 560, 185);
-            if (this.mixingBowl.ingredients.length > 0) {
-                this.mixingBowl.ingredients.forEach((ing, i) => {
-                    ctx.fillStyle = 'blue';
-                    ctx.fillText(`• ${ing}`, 565, 200 + i * 12);
-                });
+            if (this.mixingBowl.ingredients.length > 0 || this.mixingBowl.mixed) {
+                ctx.fillStyle = 'black';
+                ctx.fillText('Mixing Bowl:', 530, 180);
+                if (this.mixingBowl.mixed) {
+                    ctx.fillStyle = 'green';
+                    ctx.fillText('✓ Batter ready!', 535, 195);
+                } else {
+                    this.mixingBowl.ingredients.forEach((ing, i) => {
+                        ctx.fillStyle = 'blue';
+                        ctx.fillText(`• ${ing}`, 535, 195 + i * 12);
+                    });
+                }
             }
-            if (this.mixingBowl.mixed) {
-                ctx.fillStyle = 'green';
-                ctx.fillText('✓ Batter ready!', 565, 200 + this.mixingBowl.ingredients.length * 12);
+            
+            // Cereal Recipe
+            ctx.font = '14px Arial';
+            ctx.fillStyle = this.cerealRecipe.completed ? 'green' : 'blue';
+            ctx.fillText(`${this.cerealRecipe.name}${this.cerealRecipe.completed ? ' ✓' : ''}`, 530, 240);
+            
+            ctx.fillStyle = 'black';
+            ctx.font = '10px Arial';
+            ctx.fillText('Ingredients:', 530, 255);
+            this.cerealRecipe.ingredients.forEach((ing, i) => {
+                const hasItem = this.cerealBowl.hasItems.includes(ing);
+                ctx.fillStyle = hasItem ? 'green' : 'gray';
+                ctx.fillText(`• ${ing}`, 535, 270 + i * 12);
+            });
+            
+            // Show cereal bowl status
+            if (this.cerealBowl.hasItems.length > 0) {
+                ctx.fillStyle = 'black';
+                ctx.fillText('Cereal Area:', 530, 320);
+                this.cerealBowl.hasItems.forEach((ing, i) => {
+                    ctx.fillStyle = 'blue';
+                    ctx.fillText(`• ${ing}`, 535, 335 + i * 12);
+                });
             }
         },
         
@@ -2232,7 +2531,9 @@
             washingHands: false,
             washProgress: 0,
             usingToiletPaper: false,
-            wipingProgress: 0
+            wipingProgress: 0,
+            justFinishedWiping: false,
+            wipingCooldown: 0
         },
 
         init: function() {
@@ -2251,9 +2552,19 @@
             this.girl.washProgress = 0;
             this.girl.usingToiletPaper = false;
             this.girl.wipingProgress = 0;
+            this.girl.justFinishedWiping = false;
+            this.girl.wipingCooldown = 0;
         },
 
         update: function() {
+            // Handle wiping cooldown
+            if (this.girl.wipingCooldown > 0) {
+                this.girl.wipingCooldown--;
+                if (this.girl.wipingCooldown === 0) {
+                    this.girl.justFinishedWiping = false;
+                }
+            }
+            
             // Update peeing progress
             if (this.girl.peeing && input.spacePressed) {
                 this.girl.peeProgress += 2;
@@ -2296,6 +2607,8 @@
                     this.girl.wipingProgress = 0;
                     this.toiletPaper.rolls--;
                     girl.handsClean = false; // Need to wash hands after using toilet paper
+                    this.girl.justFinishedWiping = true;
+                    this.girl.wipingCooldown = 120; // 2 seconds at 60 fps
                     speechBubble.show('All clean! Better wash my hands now.');
                 }
             } else if (this.girl.usingToiletPaper && this.toiletPaper.rolls <= 0) {
@@ -2361,6 +2674,11 @@
                 girl.x + girl.width > this.toiletPaper.x &&
                 girl.y < this.toiletPaper.y + this.toiletPaper.height &&
                 girl.y + girl.height > this.toiletPaper.y) {
+                
+                // Don't allow using toilet paper immediately after wiping
+                if (this.girl.justFinishedWiping) {
+                    return;  // Don't do anything during cooldown
+                }
                 
                 if (this.toiletPaper.rolls > 0) {
                     this.girl.usingToiletPaper = true;
@@ -2676,6 +2994,622 @@
                 return true;
             }
             return false;
+        }
+    };
+
+    const airport = {
+        girlLuggage: null,
+        luggageCheckedIn: false,
+        checkInCounter: {
+            x: 100, y: 100, width: 150, height: 80
+        },
+        destinations: ['Paris', 'Rainforest', 'New York City', 'Rainbow Unicorn Land', 'China'],
+        gates: [
+            { id: 1, x: 300, y: 50, width: 90, height: 60, planeReady: false, destination: 'Paris' },
+            { id: 2, x: 400, y: 50, width: 90, height: 60, planeReady: true, destination: 'Rainforest' },
+            { id: 3, x: 500, y: 50, width: 90, height: 60, planeReady: false, destination: 'New York City' },
+            { id: 4, x: 600, y: 50, width: 90, height: 60, planeReady: false, destination: 'Rainbow Unicorn Land' },
+            { id: 5, x: 700, y: 50, width: 90, height: 60, planeReady: true, destination: 'China' }
+        ],
+        planes: [
+            { x: -200, y: 300, width: 120, height: 60, speed: 2, taking_off: true },
+            { x: 900, y: 250, width: 100, height: 50, speed: -1.5, landing: true }
+        ],
+        exitTaxi: {
+            x: 50, y: 400, width: 80, height: 40
+        },
+        
+        init: function() {
+            // Initialize girl's luggage near entrance
+            this.girlLuggage = {
+                x: 100, y: 350, width: 35, height: 45, 
+                color: '#FF69B4', // Pink for the girl's luggage
+                pickedUp: false
+            };
+            this.luggageCheckedIn = false;
+            
+            // Randomize gate destinations
+            this.shuffleDestinations();
+        },
+        
+        shuffleDestinations: function() {
+            // Randomly assign destinations to gates
+            const shuffled = [...this.destinations].sort(() => Math.random() - 0.5);
+            this.gates.forEach((gate, index) => {
+                gate.destination = shuffled[index];
+            });
+        },
+        
+        update: function() {
+            // Update plane animations
+            this.planes.forEach(plane => {
+                plane.x += plane.speed;
+                
+                // Reset planes that go off screen
+                if (plane.taking_off && plane.x > 900) {
+                    plane.x = -200;
+                    plane.y = 300 + Math.random() * 100;
+                } else if (plane.landing && plane.x < -200) {
+                    plane.x = 900;
+                    plane.y = 250 + Math.random() * 100;
+                }
+            });
+            
+            // Randomly toggle gate readiness
+            if (Math.random() < 0.005) { // Small chance each frame
+                const randomGate = this.gates[Math.floor(Math.random() * this.gates.length)];
+                randomGate.planeReady = !randomGate.planeReady;
+                if (randomGate.planeReady) {
+                    speechBubble.show(`Flight to ${randomGate.destination} is now boarding at Gate ${randomGate.id}!`);
+                }
+            }
+        },
+        
+        draw: function(ctx) {
+            // Draw airport background
+            if (game.images.airport && game.images.airport.loaded) {
+                ctx.drawImage(game.images.airport.img, 0, 0, game.canvas.width, game.canvas.height);
+            } else {
+                // Programmatic airport background
+                ctx.fillStyle = '#E8E8E8';
+                ctx.fillRect(0, 0, game.canvas.width, game.canvas.height);
+                
+                // Floor tiles
+                ctx.strokeStyle = '#CCC';
+                for (let x = 0; x < game.canvas.width; x += 50) {
+                    for (let y = 0; y < game.canvas.height; y += 50) {
+                        ctx.strokeRect(x, y, 50, 50);
+                    }
+                }
+            }
+            
+            // Draw check-in counter
+            ctx.fillStyle = '#4682B4';
+            ctx.fillRect(this.checkInCounter.x, this.checkInCounter.y, this.checkInCounter.width, this.checkInCounter.height);
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(this.checkInCounter.x, this.checkInCounter.y, this.checkInCounter.width, this.checkInCounter.height);
+            
+            ctx.fillStyle = 'white';
+            ctx.font = '14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('CHECK-IN', this.checkInCounter.x + this.checkInCounter.width/2, this.checkInCounter.y + 30);
+            ctx.font = '10px Arial';
+            ctx.fillText('Drop luggage here', this.checkInCounter.x + this.checkInCounter.width/2, this.checkInCounter.y + 50);
+            
+            // Draw boarding gates
+            this.gates.forEach(gate => {
+                ctx.fillStyle = gate.planeReady ? '#90EE90' : '#FFB6C1';
+                ctx.fillRect(gate.x, gate.y, gate.width, gate.height);
+                ctx.strokeStyle = '#333';
+                ctx.strokeRect(gate.x, gate.y, gate.width, gate.height);
+                
+                ctx.fillStyle = 'black';
+                ctx.font = '11px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(`Gate ${gate.id}`, gate.x + gate.width/2, gate.y + 20);
+                ctx.font = '9px Arial';
+                ctx.fillText(gate.destination, gate.x + gate.width/2, gate.y + 35);
+                ctx.font = '8px Arial';
+                ctx.fillText(gate.planeReady ? 'BOARDING' : 'WAITING', gate.x + gate.width/2, gate.y + 50);
+            });
+            
+            // Draw windows showing planes outside
+            ctx.fillStyle = '#87CEEB';
+            ctx.fillRect(300, 150, 400, 100);
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(300, 150, 400, 100);
+            
+            // Draw dividers for window panes
+            for (let i = 1; i < 4; i++) {
+                ctx.beginPath();
+                ctx.moveTo(300 + i * 100, 150);
+                ctx.lineTo(300 + i * 100, 250);
+                ctx.stroke();
+            }
+            
+            // Draw planes visible through windows
+            this.planes.forEach(plane => {
+                if (plane.y >= 150 && plane.y <= 350) {
+                    // Only draw if plane would be visible through window
+                    if (plane.x > 250 && plane.x < 750) {
+                        this.drawPlane(ctx, plane.x, plane.y, plane.width * 0.5, plane.height * 0.5);
+                    }
+                }
+            });
+            
+            // Draw girl's luggage if not picked up or checked in
+            if (this.girlLuggage && !this.girlLuggage.pickedUp && !this.luggageCheckedIn) {
+                const bag = this.girlLuggage;
+                if (game.images.luggage && game.images.luggage.loaded) {
+                    ctx.drawImage(game.images.luggage.img, bag.x, bag.y, bag.width, bag.height);
+                } else {
+                    // Draw programmatic luggage
+                    ctx.fillStyle = bag.color;
+                    ctx.fillRect(bag.x, bag.y, bag.width, bag.height);
+                    ctx.strokeStyle = '#333';
+                    ctx.strokeRect(bag.x, bag.y, bag.width, bag.height);
+                    
+                    // Handle
+                    ctx.strokeStyle = '#666';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(bag.x + 5, bag.y);
+                    ctx.lineTo(bag.x + bag.width - 5, bag.y);
+                    ctx.stroke();
+                    
+                    // Zipper
+                    ctx.strokeStyle = '#999';
+                    ctx.beginPath();
+                    ctx.moveTo(bag.x + bag.width/2, bag.y + 5);
+                    ctx.lineTo(bag.x + bag.width/2, bag.y + bag.height - 5);
+                    ctx.stroke();
+                    
+                    // Label showing it's the girl's
+                    ctx.fillStyle = 'white';
+                    ctx.font = '8px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('MY BAG', bag.x + bag.width/2, bag.y + bag.height/2);
+                }
+            }
+            
+            // Show check-in status
+            if (this.luggageCheckedIn) {
+                ctx.fillStyle = 'green';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('✓ Luggage checked in!', this.checkInCounter.x + this.checkInCounter.width/2, this.checkInCounter.y + 70);
+            }
+            
+            // Draw exit/taxi button
+            ctx.fillStyle = '#FFD700';
+            ctx.fillRect(this.exitTaxi.x, this.exitTaxi.y, this.exitTaxi.width, this.exitTaxi.height);
+            ctx.strokeStyle = '#333';
+            ctx.strokeRect(this.exitTaxi.x, this.exitTaxi.y, this.exitTaxi.width, this.exitTaxi.height);
+            
+            ctx.fillStyle = 'black';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('EXIT/TAXI', this.exitTaxi.x + this.exitTaxi.width/2, this.exitTaxi.y + 25);
+            
+            // Draw airport info panel
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.fillRect(650, 300, 140, 120);
+            ctx.strokeStyle = '#333';
+            ctx.strokeRect(650, 300, 140, 120);
+            
+            ctx.fillStyle = 'black';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('TRAVEL GUIDE', 720, 320);
+            ctx.font = '10px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText('• Pick up MY luggage', 660, 340);
+            ctx.fillText('• Check in at counter', 660, 355);
+            ctx.fillText('• Choose destination', 660, 370);
+            ctx.fillText('• Board when ready', 660, 385);
+            ctx.fillText('• Exit to call taxi', 660, 400);
+        },
+        
+        drawPlane: function(ctx, x, y, width, height) {
+            if (game.images.airplane && game.images.airplane.loaded) {
+                ctx.drawImage(game.images.airplane.img, x, y, width, height);
+            } else {
+                // Draw programmatic airplane
+                // Fuselage
+                ctx.fillStyle = '#C0C0C0';
+                ctx.fillRect(x, y + height * 0.3, width * 0.7, height * 0.4);
+                
+                // Cockpit
+                ctx.fillStyle = '#4169E1';
+                ctx.beginPath();
+                ctx.arc(x + width * 0.7, y + height * 0.5, height * 0.2, -Math.PI/2, Math.PI/2);
+                ctx.fill();
+                
+                // Wings
+                ctx.fillStyle = '#A0A0A0';
+                ctx.fillRect(x + width * 0.2, y, width * 0.3, height * 0.3);
+                ctx.fillRect(x + width * 0.2, y + height * 0.7, width * 0.3, height * 0.3);
+                
+                // Tail
+                ctx.fillStyle = '#808080';
+                ctx.beginPath();
+                ctx.moveTo(x, y + height * 0.3);
+                ctx.lineTo(x - width * 0.1, y);
+                ctx.lineTo(x, y + height * 0.5);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Windows
+                ctx.fillStyle = '#87CEEB';
+                for (let i = 0; i < 4; i++) {
+                    ctx.fillRect(x + width * 0.15 + i * width * 0.12, y + height * 0.4, width * 0.05, height * 0.1);
+                }
+            }
+        },
+        
+        interact: function() {
+            // Check exit/taxi button
+            if (girl.x < this.exitTaxi.x + this.exitTaxi.width &&
+                girl.x + girl.width > this.exitTaxi.x &&
+                girl.y < this.exitTaxi.y + this.exitTaxi.height &&
+                girl.y + girl.height > this.exitTaxi.y) {
+                // Return to outdoor scene
+                game.currentScene = 'outdoor';
+                girl.x = 600;
+                girl.y = 250;
+                speechBubble.show('Back outside! The taxi left.');
+                // Reset airport for next visit
+                this.girlLuggage.pickedUp = false;
+                this.luggageCheckedIn = false;
+                girl.carryingLuggage = null;
+                return true;
+            }
+            
+            // Check luggage pickup
+            if (this.girlLuggage && !this.girlLuggage.pickedUp && !this.luggageCheckedIn && !girl.carryingLuggage &&
+                girl.x < this.girlLuggage.x + this.girlLuggage.width &&
+                girl.x + girl.width > this.girlLuggage.x &&
+                girl.y < this.girlLuggage.y + this.girlLuggage.height &&
+                girl.y + girl.height > this.girlLuggage.y) {
+                this.girlLuggage.pickedUp = true;
+                girl.carryingLuggage = this.girlLuggage;
+                speechBubble.show('Picked up my luggage! Now I need to check it in.');
+            }
+            
+            // Check luggage check-in
+            if (girl.carryingLuggage &&
+                girl.x < this.checkInCounter.x + this.checkInCounter.width &&
+                girl.x + girl.width > this.checkInCounter.x &&
+                girl.y < this.checkInCounter.y + this.checkInCounter.height &&
+                girl.y + girl.height > this.checkInCounter.y) {
+                this.luggageCheckedIn = true;
+                girl.carryingLuggage = null;
+                speechBubble.show('Luggage checked in! Now I can board a plane!');
+            }
+            
+            // Check boarding gates
+            this.gates.forEach(gate => {
+                if (gate.planeReady &&
+                    girl.x < gate.x + gate.width &&
+                    girl.x + girl.width > gate.x &&
+                    girl.y < gate.y + gate.height &&
+                    girl.y + girl.height > gate.y) {
+                    
+                    if (!this.luggageCheckedIn) {
+                        speechBubble.show('I need to check in my luggage first!');
+                        return;
+                    }
+                    
+                    // Board the plane to the destination!
+                    const destination = gate.destination;
+                    speechBubble.show(`Boarding flight to ${destination}! ✈️`);
+                    
+                    // Travel to the destination
+                    setTimeout(() => {
+                        this.travelToDestination(destination);
+                    }, 1000);
+                    
+                    gate.planeReady = false;
+                }
+            });
+            
+            return false;
+        },
+        
+        travelToDestination: function(destination) {
+            // Map destinations to scene names
+            const sceneMap = {
+                'Paris': 'paris',
+                'Rainforest': 'rainforest',
+                'New York City': 'nyc',
+                'Rainbow Unicorn Land': 'unicornland',
+                'China': 'china'
+            };
+            
+            const scene = sceneMap[destination];
+            if (scene) {
+                game.currentScene = scene;
+                girl.x = 100;
+                girl.y = 300;
+                speechBubble.show(`Welcome to ${destination}!`);
+                
+                // Reset airport for return trip
+                this.girlLuggage.pickedUp = false;
+                this.luggageCheckedIn = false;
+                girl.carryingLuggage = null;
+            }
+        }
+    };
+
+    // Destination scenes
+    const destinations = {
+        paris: {
+            draw: function(ctx) {
+                // Paris background - Eiffel Tower and cafes
+                ctx.fillStyle = '#87CEEB'; // Sky blue
+                ctx.fillRect(0, 0, game.canvas.width, game.canvas.height);
+                
+                // Eiffel Tower
+                ctx.fillStyle = '#696969';
+                ctx.fillRect(350, 100, 10, 200);
+                ctx.fillRect(320, 150, 70, 5);
+                ctx.fillRect(330, 200, 50, 5);
+                ctx.beginPath();
+                ctx.moveTo(355, 100);
+                ctx.lineTo(340, 150);
+                ctx.lineTo(370, 150);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Cafe
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(100, 200, 150, 100);
+                ctx.fillStyle = '#FF6347';
+                ctx.fillRect(120, 220, 110, 60);
+                
+                // Return button
+                ctx.fillStyle = '#FFD700';
+                ctx.fillRect(50, 350, 100, 40);
+                ctx.fillStyle = 'black';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('RETURN HOME', 100, 375);
+                
+                ctx.fillStyle = 'black';
+                ctx.font = '24px Arial';
+                ctx.fillText('Welcome to Paris! 🗼', 400, 50);
+            },
+            
+            interact: function() {
+                if (girl.x < 150 && girl.x + girl.width > 50 &&
+                    girl.y < 390 && girl.y + girl.height > 350) {
+                    game.currentScene = 'outdoor';
+                    girl.x = 600;
+                    girl.y = 250;
+                    speechBubble.show('Back home from Paris!');
+                }
+            }
+        },
+        
+        rainforest: {
+            draw: function(ctx) {
+                // Rainforest background
+                ctx.fillStyle = '#228B22'; // Forest green
+                ctx.fillRect(0, 0, game.canvas.width, game.canvas.height);
+                
+                // Trees
+                for (let i = 0; i < 8; i++) {
+                    const x = i * 100 + 50;
+                    const y = 150 + Math.random() * 50;
+                    ctx.fillStyle = '#8B4513'; // Brown trunk
+                    ctx.fillRect(x, y, 20, 100);
+                    ctx.fillStyle = '#32CD32'; // Green leaves
+                    ctx.beginPath();
+                    ctx.arc(x + 10, y, 40, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Animals
+                ctx.font = '30px Arial';
+                ctx.fillText('🐒', 200, 200);
+                ctx.fillText('🦜', 400, 150);
+                ctx.fillText('🐅', 600, 250);
+                
+                // Return button
+                ctx.fillStyle = '#FFD700';
+                ctx.fillRect(50, 350, 100, 40);
+                ctx.fillStyle = 'black';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('RETURN HOME', 100, 375);
+                
+                ctx.fillStyle = 'white';
+                ctx.font = '24px Arial';
+                ctx.fillText('Amazon Rainforest! 🌳', 400, 50);
+            },
+            
+            interact: function() {
+                if (girl.x < 150 && girl.x + girl.width > 50 &&
+                    girl.y < 390 && girl.y + girl.height > 350) {
+                    game.currentScene = 'outdoor';
+                    girl.x = 600;
+                    girl.y = 250;
+                    speechBubble.show('Back home from the rainforest!');
+                }
+            }
+        },
+        
+        nyc: {
+            draw: function(ctx) {
+                // NYC background - skyscrapers
+                ctx.fillStyle = '#87CEEB'; // Sky blue
+                ctx.fillRect(0, 0, game.canvas.width, game.canvas.height);
+                
+                // Skyscrapers
+                const buildings = [
+                    {x: 100, y: 50, w: 80, h: 300, color: '#708090'},
+                    {x: 200, y: 100, w: 60, h: 250, color: '#2F4F4F'},
+                    {x: 280, y: 80, w: 70, h: 270, color: '#696969'},
+                    {x: 370, y: 60, w: 90, h: 290, color: '#778899'},
+                    {x: 480, y: 90, w: 75, h: 260, color: '#708090'},
+                    {x: 570, y: 70, w: 85, h: 280, color: '#2F4F4F'}
+                ];
+                
+                buildings.forEach(building => {
+                    ctx.fillStyle = building.color;
+                    ctx.fillRect(building.x, building.y, building.w, building.h);
+                    
+                    // Windows
+                    ctx.fillStyle = '#FFD700';
+                    for (let row = 0; row < building.h / 20; row++) {
+                        for (let col = 0; col < building.w / 15; col++) {
+                            if (Math.random() > 0.3) {
+                                ctx.fillRect(building.x + col * 15 + 2, building.y + row * 20 + 2, 8, 8);
+                            }
+                        }
+                    }
+                });
+                
+                // Return button
+                ctx.fillStyle = '#FFD700';
+                ctx.fillRect(50, 350, 100, 40);
+                ctx.fillStyle = 'black';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('RETURN HOME', 100, 375);
+                
+                ctx.fillStyle = 'black';
+                ctx.font = '24px Arial';
+                ctx.fillText('New York City! 🏙️', 400, 30);
+            },
+            
+            interact: function() {
+                if (girl.x < 150 && girl.x + girl.width > 50 &&
+                    girl.y < 390 && girl.y + girl.height > 350) {
+                    game.currentScene = 'outdoor';
+                    girl.x = 600;
+                    girl.y = 250;
+                    speechBubble.show('Back home from NYC!');
+                }
+            }
+        },
+        
+        unicornland: {
+            draw: function(ctx) {
+                // Rainbow background
+                const colors = ['#FF0000', '#FF7F00', '#FFFF00', '#00FF00', '#0000FF', '#4B0082', '#9400D3'];
+                for (let i = 0; i < colors.length; i++) {
+                    ctx.fillStyle = colors[i];
+                    ctx.fillRect(0, i * game.canvas.height / colors.length, game.canvas.width, game.canvas.height / colors.length);
+                }
+                
+                // Clouds
+                ctx.fillStyle = 'white';
+                for (let i = 0; i < 6; i++) {
+                    const x = i * 120 + 60;
+                    const y = 100 + Math.sin(i) * 50;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 30, 0, Math.PI * 2);
+                    ctx.arc(x + 20, y, 35, 0, Math.PI * 2);
+                    ctx.arc(x + 40, y, 30, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Unicorns and rainbows
+                ctx.font = '40px Arial';
+                ctx.fillText('🦄', 200, 250);
+                ctx.fillText('🦄', 400, 280);
+                ctx.fillText('🦄', 600, 260);
+                ctx.fillText('🌈', 100, 200);
+                ctx.fillText('🌈', 500, 180);
+                ctx.fillText('⭐', 150, 150);
+                ctx.fillText('⭐', 350, 170);
+                ctx.fillText('⭐', 550, 140);
+                
+                // Return button
+                ctx.fillStyle = '#FFD700';
+                ctx.fillRect(50, 350, 100, 40);
+                ctx.fillStyle = 'black';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('RETURN HOME', 100, 375);
+                
+                ctx.fillStyle = 'white';
+                ctx.font = '24px Arial';
+                ctx.fillText('Rainbow Unicorn Land! 🦄🌈', 400, 50);
+            },
+            
+            interact: function() {
+                if (girl.x < 150 && girl.x + girl.width > 50 &&
+                    girl.y < 390 && girl.y + girl.height > 350) {
+                    game.currentScene = 'outdoor';
+                    girl.x = 600;
+                    girl.y = 250;
+                    speechBubble.show('Back home from Unicorn Land!');
+                }
+            }
+        },
+        
+        china: {
+            draw: function(ctx) {
+                // China background with Great Wall
+                ctx.fillStyle = '#87CEEB'; // Sky blue
+                ctx.fillRect(0, 0, game.canvas.width, game.canvas.height);
+                
+                // Mountains
+                ctx.fillStyle = '#8B7355';
+                for (let i = 0; i < 5; i++) {
+                    const x = i * 150;
+                    ctx.beginPath();
+                    ctx.moveTo(x, 400);
+                    ctx.lineTo(x + 75, 150);
+                    ctx.lineTo(x + 150, 400);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+                
+                // Great Wall
+                ctx.fillStyle = '#CD853F';
+                ctx.fillRect(0, 200, game.canvas.width, 30);
+                // Wall towers
+                for (let i = 0; i < 4; i++) {
+                    const x = i * 200 + 100;
+                    ctx.fillRect(x, 170, 40, 60);
+                    ctx.fillStyle = '#8B4513';
+                    ctx.fillRect(x + 5, 160, 30, 15);
+                    ctx.fillStyle = '#CD853F';
+                }
+                
+                // Chinese elements
+                ctx.font = '30px Arial';
+                ctx.fillText('🐉', 300, 300);
+                ctx.fillText('🏮', 150, 320);
+                ctx.fillText('🏮', 550, 310);
+                
+                // Return button
+                ctx.fillStyle = '#FFD700';
+                ctx.fillRect(50, 350, 100, 40);
+                ctx.fillStyle = 'black';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('RETURN HOME', 100, 375);
+                
+                ctx.fillStyle = 'black';
+                ctx.font = '24px Arial';
+                ctx.fillText('Welcome to China! 🏯', 400, 50);
+            },
+            
+            interact: function() {
+                if (girl.x < 150 && girl.x + girl.width > 50 &&
+                    girl.y < 390 && girl.y + girl.height > 350) {
+                    game.currentScene = 'outdoor';
+                    girl.x = 600;
+                    girl.y = 250;
+                    speechBubble.show('Back home from China!');
+                }
+            }
         }
     };
 
@@ -3107,12 +4041,17 @@
                 }
             } else if (game.currentScene === 'outdoor') {
                 if (!houseEntrance.interact() && !friend.interact()) {
+                    taxi.interact();
                     girl.interactWithChickens();
                 }
             } else if (game.currentScene === 'kitchen') {
                 kitchen.interact();
             } else if (game.currentScene === 'bathroom') {
                 bathroom.interact();
+            } else if (game.currentScene === 'airport') {
+                airport.interact();
+            } else if (destinations[game.currentScene]) {
+                destinations[game.currentScene].interact();
             }
         }
     };
@@ -3313,6 +4252,7 @@
     chickens.init();
     kitchen.init();
     bathroom.init();
+    airport.init();
     friend.init();
 
     // Show debug help on load
