@@ -98,6 +98,10 @@
                 bathroom.update();
             } else if (this.currentScene === 'airport') {
                 airport.update();
+            } else if (this.currentScene === 'airplane') {
+                airplane.update();
+            } else if (destinations[this.currentScene] && destinations[this.currentScene].update) {
+                destinations[this.currentScene].update();
             } else if (this.currentScene === 'indoor') {
                 kitten.update();
                 mamaCat.update();
@@ -148,6 +152,8 @@
                 bathroom.draw(this.ctx);
             } else if (this.currentScene === 'airport') {
                 airport.draw(this.ctx);
+            } else if (this.currentScene === 'airplane') {
+                airplane.draw(this.ctx);
             } else if (destinations[this.currentScene]) {
                 destinations[this.currentScene].draw(this.ctx);
             }
@@ -3306,9 +3312,9 @@
                     const destination = gate.destination;
                     speechBubble.show(`Boarding flight to ${destination}! ✈️`);
                     
-                    // Travel to the destination
+                    // Travel to the plane interior first
                     setTimeout(() => {
-                        this.travelToDestination(destination);
+                        this.boardPlane(destination);
                     }, 1000);
                     
                     gate.planeReady = false;
@@ -3316,6 +3322,20 @@
             });
             
             return false;
+        },
+        
+        boardPlane: function(destination) {
+            game.currentScene = 'airplane';
+            girl.x = 100;
+            girl.y = 350;
+            airplane.destination = destination;
+            airplane.seatAssigned = false;
+            airplane.isSeated = false;
+            airplane.hasSnacks = false;
+            airplane.hasWater = false;
+            airplane.assignedSeat = null;
+            airplane.arrivalTimer = 30; // Reset timer to 30 seconds
+            speechBubble.show('Welcome aboard! Finding your seat assignment...');
         },
         
         travelToDestination: function(destination) {
@@ -3343,146 +3363,1227 @@
         }
     };
 
+    const airplane = {
+        destination: '',
+        seatAssigned: false,
+        isSeated: false,
+        hasSnacks: false,
+        hasWater: false,
+        assignedSeat: null,
+        arrivalTimer: 30, // 30 seconds
+        flightAttendant: { x: 400, y: 150, moving: true, direction: 1 },
+        
+        seats: [
+            // Left side seats (A, B) - Row 10
+            { x: 50, y: 120, width: 60, height: 60, number: '10A', occupied: true, passenger: '👨' },
+            { x: 120, y: 120, width: 60, height: 60, number: '10B', occupied: false },
+            
+            // Left side seats (A, B) - Row 11
+            { x: 50, y: 190, width: 60, height: 60, number: '11A', occupied: true, passenger: '👩' },
+            { x: 120, y: 190, width: 60, height: 60, number: '11B', occupied: false },
+            
+            // Left side seats (A, B) - Row 12
+            { x: 50, y: 260, width: 60, height: 60, number: '12A', occupied: false },
+            { x: 120, y: 260, width: 60, height: 60, number: '12B', occupied: true, passenger: '👴' },
+            
+            // Left side seats (A, B) - Row 13
+            { x: 50, y: 330, width: 60, height: 60, number: '13A', occupied: false },
+            { x: 120, y: 330, width: 60, height: 60, number: '13B', occupied: false },
+            
+            // Right side seats (C, D) - Row 10
+            { x: 420, y: 120, width: 60, height: 60, number: '10C', occupied: true, passenger: '👩‍💼' },
+            { x: 490, y: 120, width: 60, height: 60, number: '10D', occupied: false },
+            
+            // Right side seats (C, D) - Row 11
+            { x: 420, y: 190, width: 60, height: 60, number: '11C', occupied: false },
+            { x: 490, y: 190, width: 60, height: 60, number: '11D', occupied: true, passenger: '👨‍💻' },
+            
+            // Right side seats (C, D) - Row 12
+            { x: 420, y: 260, width: 60, height: 60, number: '12C', occupied: true, passenger: '👦' },
+            { x: 490, y: 260, width: 60, height: 60, number: '12D', occupied: false },
+            
+            // Right side seats (C, D) - Row 13
+            { x: 420, y: 330, width: 60, height: 60, number: '13C', occupied: false },
+            { x: 490, y: 330, width: 60, height: 60, number: '13D', occupied: false }
+        ],
+        
+        availableSeats: ['10B', '10D', '11B', '11C', '12A', '12D', '13A', '13B', '13C', '13D'],
+        
+        tvScreen: { x: 300, y: 80, width: 100, height: 60, channel: 0 },
+        
+        update: function() {
+            // Move flight attendant
+            if (this.flightAttendant.moving) {
+                this.flightAttendant.x += this.flightAttendant.direction * 1;
+                if (this.flightAttendant.x > 500 || this.flightAttendant.x < 200) {
+                    this.flightAttendant.direction *= -1;
+                }
+            }
+            
+            // Update arrival timer if seated
+            if (this.isSeated && this.arrivalTimer > 0) {
+                this.arrivalTimer -= 1/60; // Decrement by 1/60th per frame (60 FPS)
+                if (this.arrivalTimer <= 0) {
+                    this.arrivalTimer = 0;
+                    speechBubble.show('We have arrived! Please gather your belongings.');
+                    setTimeout(() => {
+                        airport.travelToDestination(this.destination);
+                    }, 2000);
+                }
+            }
+            
+            // Assign seat on first frame if not assigned
+            if (!this.seatAssigned && !this.assignedSeat) {
+                this.assignRandomSeat();
+            }
+        },
+        
+        assignRandomSeat: function() {
+            const randomSeatNumber = this.availableSeats[Math.floor(Math.random() * this.availableSeats.length)];
+            this.assignedSeat = this.seats.find(seat => seat.number === randomSeatNumber);
+            this.seatAssigned = true;
+            speechBubble.show(`Your seat is ${randomSeatNumber}. Please find and sit in it!`);
+        },
+        
+        draw: function(ctx) {
+            // Airplane interior background
+            ctx.fillStyle = '#E6E6FA'; // Lavender
+            ctx.fillRect(0, 0, game.canvas.width, game.canvas.height);
+            
+            // Cabin walls
+            ctx.fillStyle = '#D3D3D3';
+            ctx.fillRect(0, 0, game.canvas.width, 50);
+            ctx.fillRect(0, game.canvas.height - 50, game.canvas.width, 50);
+            
+            // Aisle
+            ctx.fillStyle = '#4169E1';
+            ctx.fillRect(250, 0, 100, game.canvas.height);
+            
+            // Draw seats
+            this.seats.forEach(seat => {
+                if (seat === this.assignedSeat) {
+                    ctx.fillStyle = '#FFD700'; // Assigned seat - gold
+                } else if (seat.occupied) {
+                    ctx.fillStyle = '#8B0000'; // Occupied - dark red
+                } else {
+                    ctx.fillStyle = '#4682B4'; // Available - steel blue
+                }
+                
+                ctx.fillRect(seat.x, seat.y, seat.width, seat.height);
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(seat.x, seat.y, seat.width, seat.height);
+                
+                // Seat number
+                ctx.fillStyle = 'white';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(seat.number, seat.x + seat.width/2, seat.y + seat.height/2 + 3);
+                
+                // Draw passengers properly positioned in seats
+                if (seat.occupied && seat.passenger) {
+                    ctx.font = '20px Arial';
+                    ctx.fillText(seat.passenger, seat.x + seat.width/2, seat.y + seat.height/2 - 5);
+                }
+                
+                // Show interaction hint for assigned seat
+                if (seat === this.assignedSeat && !this.isSeated &&
+                    girl.x < seat.x + seat.width + 10 && girl.x + girl.width > seat.x - 10 &&
+                    girl.y < seat.y + seat.height + 10 && girl.y + girl.height > seat.y - 10) {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                    ctx.fillRect(seat.x - 10, seat.y - 25, seat.width + 20, 15);
+                    ctx.fillStyle = 'black';
+                    ctx.font = '10px Arial';
+                    ctx.fillText('Press SPACE to sit', seat.x + seat.width/2, seat.y - 15);
+                }
+            });
+            
+            // Draw TV screen
+            ctx.fillStyle = '#000';
+            ctx.fillRect(this.tvScreen.x, this.tvScreen.y, this.tvScreen.width, this.tvScreen.height);
+            ctx.strokeStyle = '#C0C0C0';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(this.tvScreen.x, this.tvScreen.y, this.tvScreen.width, this.tvScreen.height);
+            
+            // TV content with actual content
+            ctx.fillStyle = '#00FF00';
+            ctx.font = '10px Arial';
+            ctx.textAlign = 'center';
+            
+            const tvContent = [
+                { title: '✈️ Flight Map', content: [`To: ${this.destination}`, 'Speed: 550 mph', 'Altitude: 35,000 ft'] },
+                { title: '🎬 Movies', content: ['🎬 Top Gun: Maverick', '🎬 Spider-Man', '🎬 Avatar'] },
+                { title: '🎵 Music', content: ['🎵 Classical Radio', '🎵 Jazz Lounge', '🎵 Pop Hits'] },
+                { title: '📰 News', content: ['📰 Weather: Sunny', '📰 Sports Scores', '📰 World News'] }
+            ];
+            
+            const currentContent = tvContent[this.tvScreen.channel];
+            ctx.fillText(currentContent.title, this.tvScreen.x + this.tvScreen.width/2, this.tvScreen.y + 15);
+            
+            currentContent.content.forEach((line, index) => {
+                ctx.fillText(line, this.tvScreen.x + this.tvScreen.width/2, this.tvScreen.y + 30 + index * 10);
+            });
+            
+            ctx.fillText('Press T to change', this.tvScreen.x + this.tvScreen.width/2, this.tvScreen.y + 55);
+            
+            // Draw flight attendant
+            ctx.fillStyle = '#0000FF'; // Blue uniform
+            ctx.fillRect(this.flightAttendant.x, this.flightAttendant.y, 30, 50);
+            ctx.fillStyle = '#FFB6C1'; // Pink face
+            ctx.fillRect(this.flightAttendant.x + 5, this.flightAttendant.y - 10, 20, 15);
+            
+            // Cart with snacks
+            ctx.fillStyle = '#C0C0C0';
+            ctx.fillRect(this.flightAttendant.x + 35, this.flightAttendant.y + 10, 40, 30);
+            ctx.font = '12px Arial';
+            ctx.fillText('🥜🥤', this.flightAttendant.x + 55, this.flightAttendant.y + 30);
+            
+            // Show interaction hint near flight attendant
+            if (girl.x < this.flightAttendant.x + 80 && girl.x + girl.width > this.flightAttendant.x - 10 &&
+                girl.y < this.flightAttendant.y + 60 && girl.y + girl.height > this.flightAttendant.y - 10) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.fillRect(this.flightAttendant.x - 10, this.flightAttendant.y - 30, 100, 15);
+                ctx.fillStyle = 'black';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Press SPACE for service', this.flightAttendant.x + 40, this.flightAttendant.y - 20);
+            }
+            
+            // Flight info panel
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.fillRect(550, 50, 200, 160);
+            ctx.strokeStyle = '#333';
+            ctx.strokeRect(550, 50, 200, 160);
+            
+            ctx.fillStyle = 'black';
+            ctx.font = '14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(`Flight to ${this.destination}`, 650, 75);
+            
+            ctx.font = '10px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText(`Seat: ${this.assignedSeat ? this.assignedSeat.number + (this.isSeated ? ' ✓' : '') : 'Assigning...'}`, 560, 100);
+            ctx.fillText(`Seated: ${this.isSeated ? 'Yes ✓' : 'No'}`, 560, 115);
+            ctx.fillText(`Snacks: ${this.hasSnacks ? 'Received ✓' : 'Available'}`, 560, 130);
+            ctx.fillText(`Water: ${this.hasWater ? 'Received ✓' : 'Available'}`, 560, 145);
+            
+            // Arrival timer
+            if (this.isSeated) {
+                const minutes = Math.floor(this.arrivalTimer / 60);
+                const seconds = Math.floor(this.arrivalTimer % 60);
+                ctx.fillStyle = this.arrivalTimer <= 30 ? 'red' : 'blue';
+                ctx.fillText(`Arrival: ${minutes}:${seconds.toString().padStart(2, '0')}`, 560, 160);
+                
+                if (this.hasSnacks && this.hasWater) {
+                    ctx.fillStyle = 'green';
+                    ctx.fillText('Enjoy your flight!', 560, 175);
+                }
+            } else {
+                ctx.fillStyle = 'orange';
+                ctx.fillText('Please take your seat', 560, 160);
+            }
+        },
+        
+        interact: function() {
+            // Check sitting in assigned seat
+            if (this.assignedSeat && !this.isSeated &&
+                girl.x < this.assignedSeat.x + this.assignedSeat.width + 10 && girl.x + girl.width > this.assignedSeat.x - 10 &&
+                girl.y < this.assignedSeat.y + this.assignedSeat.height + 10 && girl.y + girl.height > this.assignedSeat.y - 10) {
+                this.isSeated = true;
+                speechBubble.show(`Seated in ${this.assignedSeat.number}! The flight will take ${this.arrivalTimer} seconds.`);
+                return;
+            }
+            
+            // Check flight attendant interaction
+            if (girl.x < this.flightAttendant.x + 80 && girl.x + girl.width > this.flightAttendant.x - 10 &&
+                girl.y < this.flightAttendant.y + 60 && girl.y + girl.height > this.flightAttendant.y - 10) {
+                
+                if (!this.hasSnacks) {
+                    this.hasSnacks = true;
+                    speechBubble.show('Here are some complimentary peanuts! 🥜');
+                } else if (!this.hasWater) {
+                    this.hasWater = true;
+                    speechBubble.show('And here\'s some water! 🥤');
+                } else {
+                    speechBubble.show('Enjoy your flight! We\'ll be landing soon.');
+                }
+                return;
+            }
+            
+            // Landing is now handled by the timer in update function
+        },
+        
+        changeChannel: function() {
+            this.tvScreen.channel = (this.tvScreen.channel + 1) % 4;
+            speechBubble.show('Channel changed!');
+        }
+    };
+
     // Destination scenes
     const destinations = {
         paris: {
             draw: function(ctx) {
-                // Paris background - Eiffel Tower and cafes
-                ctx.fillStyle = '#87CEEB'; // Sky blue
+                // Paris background - beautiful gradient sky
+                const gradient = ctx.createLinearGradient(0, 0, 0, game.canvas.height);
+                gradient.addColorStop(0, '#87CEEB'); // Sky blue
+                gradient.addColorStop(0.7, '#FFB6C1'); // Light pink
+                gradient.addColorStop(1, '#DDA0DD'); // Plum
+                ctx.fillStyle = gradient;
                 ctx.fillRect(0, 0, game.canvas.width, game.canvas.height);
                 
-                // Eiffel Tower
-                ctx.fillStyle = '#696969';
-                ctx.fillRect(350, 100, 10, 200);
-                ctx.fillRect(320, 150, 70, 5);
-                ctx.fillRect(330, 200, 50, 5);
+                // Clouds
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                for (let i = 0; i < 4; i++) {
+                    const x = i * 180 + 100;
+                    const y = 80 + Math.sin(i) * 20;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 25, 0, Math.PI * 2);
+                    ctx.arc(x + 15, y, 30, 0, Math.PI * 2);
+                    ctx.arc(x + 30, y, 25, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Realistic Eiffel Tower with see-through lattice structure
+                this.drawEiffelTower(ctx, 380, 80);
+                
+                // Beautiful French Hotel
+                const hotelX = 100;
+                const hotelY = 180;
+                
+                // Hotel main building
+                ctx.fillStyle = '#F5F5DC'; // Beige
+                ctx.fillRect(hotelX, hotelY, 120, 120);
+                
+                // Hotel roof
+                ctx.fillStyle = '#8B0000'; // Dark red
                 ctx.beginPath();
-                ctx.moveTo(355, 100);
-                ctx.lineTo(340, 150);
-                ctx.lineTo(370, 150);
+                ctx.moveTo(hotelX - 10, hotelY);
+                ctx.lineTo(hotelX + 60, hotelY - 30);
+                ctx.lineTo(hotelX + 130, hotelY);
                 ctx.closePath();
                 ctx.fill();
                 
-                // Cafe
+                // Hotel sign
+                ctx.fillStyle = '#FFD700';
+                ctx.fillRect(hotelX + 20, hotelY + 20, 80, 25);
+                ctx.fillStyle = '#8B0000';
+                ctx.font = '14px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('HÔTEL PARIS', hotelX + 60, hotelY + 38);
+                
+                // Hotel windows
+                ctx.fillStyle = '#87CEEB';
+                for (let row = 0; row < 3; row++) {
+                    for (let col = 0; col < 4; col++) {
+                        const winX = hotelX + 15 + col * 25;
+                        const winY = hotelY + 60 + row * 20;
+                        ctx.fillRect(winX, winY, 12, 15);
+                        ctx.strokeStyle = '#8B4513';
+                        ctx.lineWidth = 1;
+                        ctx.strokeRect(winX, winY, 12, 15);
+                        // Window cross
+                        ctx.beginPath();
+                        ctx.moveTo(winX + 6, winY);
+                        ctx.lineTo(winX + 6, winY + 15);
+                        ctx.moveTo(winX, winY + 7);
+                        ctx.lineTo(winX + 12, winY + 7);
+                        ctx.stroke();
+                    }
+                }
+                
+                // Hotel entrance
                 ctx.fillStyle = '#8B4513';
-                ctx.fillRect(100, 200, 150, 100);
+                ctx.fillRect(hotelX + 50, hotelY + 100, 20, 20);
+                ctx.fillStyle = '#FFD700';
+                ctx.fillRect(hotelX + 52, hotelY + 102, 16, 16);
+                
+                // French flag
+                const flagX = hotelX - 20;
+                const flagY = hotelY + 30;
+                // Flag pole
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(flagX, flagY, 3, 80);
+                // Flag
+                ctx.fillStyle = '#0055A4'; // Blue
+                ctx.fillRect(flagX + 3, flagY, 15, 10);
+                ctx.fillStyle = '#FFFFFF'; // White
+                ctx.fillRect(flagX + 18, flagY, 15, 10);
+                ctx.fillStyle = '#EF4135'; // Red
+                ctx.fillRect(flagX + 33, flagY, 15, 10);
+                
+                // Parisian street lamp
+                const lampX = 280;
+                const lampY = 200;
+                ctx.fillStyle = '#2F2F2F';
+                ctx.fillRect(lampX, lampY, 5, 100);
+                ctx.fillStyle = '#FFD700';
+                ctx.beginPath();
+                ctx.arc(lampX + 2.5, lampY, 15, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Café tables
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(320, 280, 30, 20);
+                ctx.fillRect(370, 275, 30, 20);
+                // Umbrellas
                 ctx.fillStyle = '#FF6347';
-                ctx.fillRect(120, 220, 110, 60);
+                ctx.beginPath();
+                ctx.arc(335, 270, 20, 0, Math.PI);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(385, 265, 20, 0, Math.PI);
+                ctx.fill();
+                
+                // Hotel interaction hint
+                if (girl.x < hotelX + 130 && girl.x + girl.width > hotelX &&
+                    girl.y < hotelY + 130 && girl.y + girl.height > hotelY + 100) {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                    ctx.fillRect(hotelX + 10, hotelY - 20, 100, 15);
+                    ctx.fillStyle = 'black';
+                    ctx.font = '10px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('Press SPACE to enter hotel', hotelX + 60, hotelY - 10);
+                }
                 
                 // Return button
                 ctx.fillStyle = '#FFD700';
                 ctx.fillRect(50, 350, 100, 40);
+                ctx.strokeStyle = '#8B4513';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(50, 350, 100, 40);
                 ctx.fillStyle = 'black';
                 ctx.font = '12px Arial';
                 ctx.textAlign = 'center';
                 ctx.fillText('RETURN HOME', 100, 375);
                 
-                ctx.fillStyle = 'black';
+                // Title
+                ctx.fillStyle = 'white';
                 ctx.font = '24px Arial';
-                ctx.fillText('Welcome to Paris! 🗼', 400, 50);
+                ctx.strokeStyle = 'black';
+                ctx.lineWidth = 1;
+                ctx.strokeText('Bonjour Paris! 🗼', 400, 40);
+                ctx.fillText('Bonjour Paris! 🗼', 400, 40);
+            },
+            
+            drawEiffelTower: function(ctx, towerX, towerY) {
+                const towerColor = '#2F2F2F';
+                const highlightColor = '#404040';
+                
+                // Main tower structure - four legs with see-through design
+                ctx.strokeStyle = towerColor;
+                ctx.lineWidth = 4;
+                
+                // Tower legs (four main pillars)
+                // Left front leg
+                ctx.beginPath();
+                ctx.moveTo(towerX - 50, towerY + 220);
+                ctx.lineTo(towerX - 25, towerY + 160);
+                ctx.lineTo(towerX - 15, towerY + 100);
+                ctx.lineTo(towerX - 8, towerY + 40);
+                ctx.lineTo(towerX, towerY);
+                ctx.stroke();
+                
+                // Right front leg
+                ctx.beginPath();
+                ctx.moveTo(towerX + 50, towerY + 220);
+                ctx.lineTo(towerX + 25, towerY + 160);
+                ctx.lineTo(towerX + 15, towerY + 100);
+                ctx.lineTo(towerX + 8, towerY + 40);
+                ctx.lineTo(towerX, towerY);
+                ctx.stroke();
+                
+                // Left back leg
+                ctx.strokeStyle = highlightColor;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(towerX - 45, towerY + 215);
+                ctx.lineTo(towerX - 20, towerY + 155);
+                ctx.lineTo(towerX - 10, towerY + 95);
+                ctx.lineTo(towerX - 4, towerY + 35);
+                ctx.lineTo(towerX, towerY);
+                ctx.stroke();
+                
+                // Right back leg
+                ctx.beginPath();
+                ctx.moveTo(towerX + 45, towerY + 215);
+                ctx.lineTo(towerX + 20, towerY + 155);
+                ctx.lineTo(towerX + 10, towerY + 95);
+                ctx.lineTo(towerX + 4, towerY + 35);
+                ctx.lineTo(towerX, towerY);
+                ctx.stroke();
+                
+                // Horizontal platforms (see-through)
+                ctx.strokeStyle = towerColor;
+                ctx.lineWidth = 6;
+                
+                // First level platform
+                ctx.beginPath();
+                ctx.moveTo(towerX - 50, towerY + 220);
+                ctx.lineTo(towerX + 50, towerY + 220);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(towerX - 45, towerY + 215);
+                ctx.lineTo(towerX + 45, towerY + 215);
+                ctx.stroke();
+                
+                // Second level platform
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(towerX - 25, towerY + 160);
+                ctx.lineTo(towerX + 25, towerY + 160);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(towerX - 20, towerY + 155);
+                ctx.lineTo(towerX + 20, towerY + 155);
+                ctx.stroke();
+                
+                // Third level platform
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(towerX - 15, towerY + 100);
+                ctx.lineTo(towerX + 15, towerY + 100);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(towerX - 10, towerY + 95);
+                ctx.lineTo(towerX + 10, towerY + 95);
+                ctx.stroke();
+                
+                // Fourth level platform
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(towerX - 8, towerY + 40);
+                ctx.lineTo(towerX + 8, towerY + 40);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(towerX - 4, towerY + 35);
+                ctx.lineTo(towerX + 4, towerY + 35);
+                ctx.stroke();
+                
+                // Cross-bracing and lattice work (creates see-through effect)
+                ctx.strokeStyle = towerColor;
+                ctx.lineWidth = 2;
+                
+                // Bottom section lattice
+                for (let level = 0; level < 4; level++) {
+                    const baseY = towerY + 220 - level * 40;
+                    const topY = baseY - 40;
+                    const leftX = towerX - 50 + level * 8;
+                    const rightX = towerX + 50 - level * 8;
+                    
+                    // Diagonal cross-bracing
+                    for (let i = 0; i < 5; i++) {
+                        const segmentWidth = (rightX - leftX) / 5;
+                        const x1 = leftX + i * segmentWidth;
+                        const x2 = leftX + (i + 1) * segmentWidth;
+                        
+                        // X pattern cross-bracing
+                        ctx.beginPath();
+                        ctx.moveTo(x1, baseY);
+                        ctx.lineTo(x2, topY);
+                        ctx.stroke();
+                        
+                        ctx.beginPath();
+                        ctx.moveTo(x2, baseY);
+                        ctx.lineTo(x1, topY);
+                        ctx.stroke();
+                    }
+                }
+                
+                // Vertical connecting struts
+                ctx.lineWidth = 1;
+                for (let i = 0; i < 3; i++) {
+                    const x = towerX - 30 + i * 30;
+                    ctx.beginPath();
+                    ctx.moveTo(x, towerY + 220);
+                    ctx.lineTo(x - 5 + i * 2, towerY + 160);
+                    ctx.stroke();
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(x - 5 + i * 2, towerY + 160);
+                    ctx.lineTo(x - 8 + i * 3, towerY + 100);
+                    ctx.stroke();
+                }
+                
+                // Antenna/spire
+                ctx.strokeStyle = '#8B0000';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(towerX, towerY);
+                ctx.lineTo(towerX, towerY - 25);
+                ctx.stroke();
+                
+                // Radio antenna details
+                ctx.lineWidth = 1;
+                for (let i = 0; i < 3; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(towerX - 2, towerY - 5 - i * 5);
+                    ctx.lineTo(towerX + 2, towerY - 5 - i * 5);
+                    ctx.stroke();
+                }
+                
+                // Golden evening lighting effect
+                ctx.fillStyle = 'rgba(255, 215, 0, 0.2)';
+                ctx.beginPath();
+                ctx.arc(towerX, towerY + 120, 70, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Subtle shadow/depth effect for realism
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.lineWidth = 1;
+                
+                // Shadow lines to show depth
+                ctx.beginPath();
+                ctx.moveTo(towerX - 48, towerY + 218);
+                ctx.lineTo(towerX - 23, towerY + 158);
+                ctx.lineTo(towerX - 13, towerY + 98);
+                ctx.lineTo(towerX - 6, towerY + 38);
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.moveTo(towerX + 48, towerY + 218);
+                ctx.lineTo(towerX + 23, towerY + 158);
+                ctx.lineTo(towerX + 13, towerY + 98);
+                ctx.lineTo(towerX + 6, towerY + 38);
+                ctx.stroke();
             },
             
             interact: function() {
+                // Check hotel entry
+                if (girl.x < 220 && girl.x + girl.width > 100 &&
+                    girl.y < 300 && girl.y + girl.height > 280) {
+                    game.currentScene = 'paris_hotel';
+                    girl.x = 100;
+                    girl.y = 350;
+                    speechBubble.show('Welcome to Hôtel Paris! Très chic! 🏨✨');
+                    return;
+                }
+                
+                // Check return button
                 if (girl.x < 150 && girl.x + girl.width > 50 &&
                     girl.y < 390 && girl.y + girl.height > 350) {
                     game.currentScene = 'outdoor';
                     girl.x = 600;
                     girl.y = 250;
-                    speechBubble.show('Back home from Paris!');
+                    speechBubble.show('Au revoir Paris! Back home safely!');
+                }
+            }
+        },
+        
+        paris_hotel: {
+            draw: function(ctx) {
+                // Elegant hotel lobby background
+                const gradient = ctx.createLinearGradient(0, 0, 0, game.canvas.height);
+                gradient.addColorStop(0, '#F5F5DC'); // Beige ceiling
+                gradient.addColorStop(0.3, '#FFFACD'); // Lemon chiffon walls
+                gradient.addColorStop(1, '#8B4513'); // Brown marble floor
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, game.canvas.width, game.canvas.height);
+                
+                // Elegant marble floor pattern
+                ctx.fillStyle = '#A0522D';
+                for (let x = 0; x < game.canvas.width; x += 80) {
+                    for (let y = 300; y < game.canvas.height; y += 40) {
+                        ctx.fillRect(x, y, 40, 20);
+                    }
+                }
+                
+                // Grand chandelier
+                const chandelierX = 400;
+                const chandelierY = 80;
+                ctx.fillStyle = '#FFD700';
+                ctx.beginPath();
+                ctx.arc(chandelierX, chandelierY, 30, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Chandelier crystals
+                ctx.fillStyle = '#E0E0E0';
+                for (let i = 0; i < 8; i++) {
+                    const angle = (i * Math.PI * 2) / 8;
+                    const x = chandelierX + Math.cos(angle) * 25;
+                    const y = chandelierY + Math.sin(angle) * 25;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Chandelier chain
+                ctx.strokeStyle = '#FFD700';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(chandelierX, 50);
+                ctx.lineTo(chandelierX, chandelierY - 30);
+                ctx.stroke();
+                
+                // Reception desk
+                const deskX = 300;
+                const deskY = 200;
+                ctx.fillStyle = '#8B4513'; // Dark wood
+                ctx.fillRect(deskX, deskY, 200, 60);
+                ctx.fillStyle = '#D2691E'; // Wood top
+                ctx.fillRect(deskX, deskY, 200, 15);
+                
+                // Reception sign
+                ctx.fillStyle = '#FFD700';
+                ctx.fillRect(deskX + 60, deskY - 30, 80, 25);
+                ctx.fillStyle = '#8B0000';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('RÉCEPTION', deskX + 100, deskY - 12);
+                
+                // Reception bell
+                ctx.fillStyle = '#FFD700';
+                ctx.beginPath();
+                ctx.arc(deskX + 170, deskY + 30, 8, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Elegant French furniture
+                // Luxury armchair 1
+                ctx.fillStyle = '#8B0000'; // Deep red velvet
+                ctx.fillRect(120, 250, 50, 40);
+                ctx.fillRect(115, 245, 60, 10); // Armrests
+                ctx.fillRect(140, 230, 10, 20); // Back
+                
+                // Luxury armchair 2
+                ctx.fillStyle = '#000080'; // Navy blue velvet
+                ctx.fillRect(580, 250, 50, 40);
+                ctx.fillRect(575, 245, 60, 10); // Armrests
+                ctx.fillRect(600, 230, 10, 20); // Back
+                
+                // Coffee table
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(200, 275, 80, 40);
+                ctx.fillStyle = '#D2691E';
+                ctx.fillRect(200, 275, 80, 8);
+                
+                // Fresh flowers on table
+                ctx.font = '20px Arial';
+                ctx.fillText('🌹', 240, 270);
+                
+                // Grand staircase
+                const stairX = 600;
+                const stairY = 150;
+                ctx.fillStyle = '#8B4513';
+                for (let i = 0; i < 6; i++) {
+                    ctx.fillRect(stairX, stairY + i * 15, 150 - i * 15, 15);
+                }
+                
+                // Staircase banister
+                ctx.strokeStyle = '#FFD700';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(stairX + 150, stairY);
+                ctx.lineTo(stairX + 60, stairY + 90);
+                ctx.stroke();
+                
+                // Elegant wall art
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(50, 150, 60, 80);
+                ctx.fillStyle = '#FFD700';
+                ctx.fillRect(55, 155, 50, 70);
+                ctx.fillStyle = '#8B0000';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Mona Lisa', 80, 200);
+                ctx.font = '8px Arial';
+                ctx.fillText('(Reproduction)', 80, 215);
+                
+                // French windows with view
+                ctx.fillStyle = '#87CEEB';
+                ctx.fillRect(450, 120, 80, 100);
+                ctx.strokeStyle = '#8B4513';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(450, 120, 80, 100);
+                // Window cross
+                ctx.beginPath();
+                ctx.moveTo(490, 120);
+                ctx.lineTo(490, 220);
+                ctx.moveTo(450, 170);
+                ctx.lineTo(530, 170);
+                ctx.stroke();
+                // Eiffel Tower view through window
+                ctx.fillStyle = '#2F2F2F';
+                ctx.font = '16px Arial';
+                ctx.fillText('🗼', 490, 160);
+                
+                // Hotel services area
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.fillRect(50, 50, 200, 80);
+                ctx.strokeStyle = '#8B4513';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(50, 50, 200, 80);
+                
+                ctx.fillStyle = '#8B0000';
+                ctx.font = '14px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Services de l\'Hôtel', 150, 70);
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'left';
+                ctx.fillText('🛎️ Concierge Service', 60, 90);
+                ctx.fillText('🍽️ Restaurant Français', 60, 105);
+                ctx.fillText('🛁 Luxury Spa', 60, 120);
+                
+                // Interaction hint at reception
+                if (girl.x < deskX + 200 && girl.x + girl.width > deskX &&
+                    girl.y < deskY + 60 && girl.y + girl.height > deskY) {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                    ctx.fillRect(deskX + 20, deskY - 50, 160, 15);
+                    ctx.fillStyle = 'black';
+                    ctx.font = '10px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('Press SPACE for hotel services', deskX + 100, deskY - 40);
+                }
+                
+                // Exit door
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(50, 350, 60, 50);
+                ctx.fillStyle = '#D2691E';
+                ctx.fillRect(55, 355, 50, 40);
+                ctx.fillStyle = '#FFD700';
+                ctx.beginPath();
+                ctx.arc(95, 375, 3, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Exit hint
+                if (girl.x < 110 && girl.x + girl.width > 50 &&
+                    girl.y < 400 && girl.y + girl.height > 350) {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                    ctx.fillRect(60, 320, 80, 15);
+                    ctx.fillStyle = 'black';
+                    ctx.font = '10px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('Exit to Paris', 100, 332);
+                }
+                
+                // Title
+                ctx.fillStyle = '#8B0000';
+                ctx.font = '20px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Hôtel Paris - Lobby 🏨', 400, 30);
+            },
+            
+            interact: function() {
+                // Reception interaction
+                if (girl.x < 500 && girl.x + girl.width > 300 &&
+                    girl.y < 260 && girl.y + girl.height > 200) {
+                    const services = [
+                        'Bonjour! Welcome to Hôtel Paris! 🇫🇷',
+                        'Would you like our French pastry breakfast? 🥐',
+                        'Our concierge can arrange Louvre tickets! 🎨',
+                        'The hotel spa offers lavender treatments! 🌿',
+                        'Bon séjour! Enjoy your stay in Paris! ✨'
+                    ];
+                    const randomService = services[Math.floor(Math.random() * services.length)];
+                    speechBubble.show(randomService);
+                    return;
+                }
+                
+                // Exit hotel
+                if (girl.x < 110 && girl.x + girl.width > 50 &&
+                    girl.y < 400 && girl.y + girl.height > 350) {
+                    game.currentScene = 'paris';
+                    girl.x = 160;
+                    girl.y = 280;
+                    speechBubble.show('Back to the beautiful streets of Paris!');
                 }
             }
         },
         
         rainforest: {
-            draw: function(ctx) {
-                // Rainforest background
-                ctx.fillStyle = '#228B22'; // Forest green
-                ctx.fillRect(0, 0, game.canvas.width, game.canvas.height);
-                
-                // Trees
-                for (let i = 0; i < 8; i++) {
-                    const x = i * 100 + 50;
-                    const y = 150 + Math.random() * 50;
-                    ctx.fillStyle = '#8B4513'; // Brown trunk
-                    ctx.fillRect(x, y, 20, 100);
-                    ctx.fillStyle = '#32CD32'; // Green leaves
-                    ctx.beginPath();
-                    ctx.arc(x + 10, y, 40, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-                
-                // Animals
-                ctx.font = '30px Arial';
-                ctx.fillText('🐒', 200, 200);
-                ctx.fillText('🦜', 400, 150);
-                ctx.fillText('🐅', 600, 250);
-                
-                // Return button
-                ctx.fillStyle = '#FFD700';
-                ctx.fillRect(50, 350, 100, 40);
-                ctx.fillStyle = 'black';
-                ctx.font = '12px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText('RETURN HOME', 100, 375);
-                
-                ctx.fillStyle = 'white';
-                ctx.font = '24px Arial';
-                ctx.fillText('Amazon Rainforest! 🌳', 400, 50);
-            },
+            trees: [ // Static tree positions to prevent shaking
+                {x: 50, y: 170}, {x: 150, y: 160}, {x: 250, y: 180}, {x: 350, y: 165},
+                {x: 450, y: 175}, {x: 550, y: 155}, {x: 650, y: 185}, {x: 750, y: 170}
+            ],
             
-            interact: function() {
-                if (girl.x < 150 && girl.x + girl.width > 50 &&
-                    girl.y < 390 && girl.y + girl.height > 350) {
-                    game.currentScene = 'outdoor';
-                    girl.x = 600;
-                    girl.y = 250;
-                    speechBubble.show('Back home from the rainforest!');
+            animals: [
+                // Monkeys - they move and can steal fruit
+                {type: '🐒', x: 200, y: 140, size: 45, speed: 0.8, direction: 1, behavior: 'monkey', 
+                 targetX: 200, range: 100, wantsFood: true},
+                {type: '🐒', x: 450, y: 135, size: 45, speed: 0.6, direction: -1, behavior: 'monkey', 
+                 targetX: 450, range: 120, wantsFood: true},
+                {type: '🐒', x: 650, y: 145, size: 45, speed: 0.7, direction: 1, behavior: 'monkey', 
+                 targetX: 650, range: 80, wantsFood: true},
+                 
+                // Flying birds
+                {type: '🦜', x: 350, y: 120, size: 40, speed: 1.2, direction: 1, behavior: 'bird', 
+                 targetX: 350, range: 200},
+                {type: '🦅', x: 550, y: 110, size: 40, speed: 1.5, direction: -1, behavior: 'bird', 
+                 targetX: 550, range: 150},
+                {type: '🐦', x: 100, y: 130, size: 35, speed: 1.0, direction: 1, behavior: 'bird', 
+                 targetX: 100, range: 100},
+                 
+                // Ground animals
+                {type: '🐅', x: 300, y: 280, size: 50, speed: 0.5, direction: 1, behavior: 'prowl', 
+                 targetX: 300, range: 150},
+                {type: '🐆', x: 600, y: 290, size: 45, speed: 0.6, direction: -1, behavior: 'prowl', 
+                 targetX: 600, range: 100},
+                {type: '🦌', x: 150, y: 270, size: 40, speed: 0.4, direction: 1, behavior: 'graze', 
+                 targetX: 150, range: 80},
+                {type: '🐗', x: 500, y: 285, size: 40, speed: 0.3, direction: -1, behavior: 'root', 
+                 targetX: 500, range: 60},
+                {type: '🐸', x: 250, y: 300, size: 30, speed: 0.2, direction: 1, behavior: 'hop', 
+                 targetX: 250, range: 40, hopTimer: 0},
+                {type: '🦎', x: 400, y: 295, size: 35, speed: 0.8, direction: 1, behavior: 'dart', 
+                 targetX: 400, range: 70, dartTimer: 0},
+                 
+                // River animals
+                {type: '🐊', x: 200, y: 325, size: 50, speed: 0.3, direction: 1, behavior: 'swim', 
+                 targetX: 200, range: 200},
+                {type: '🐢', x: 400, y: 328, size: 35, speed: 0.1, direction: -1, behavior: 'swim', 
+                 targetX: 400, range: 100},
+                {type: '🐠', x: 600, y: 322, size: 25, speed: 1.0, direction: 1, behavior: 'swim', 
+                 targetX: 600, range: 150}
+            ],
+            
+            butterflies: [
+                {x: 180, y: 180, size: 25, speed: 0.5, direction: Math.PI/4, flutterTimer: 0, 
+                 landedOnGirl: false, landTimer: 0},
+                {x: 420, y: 190, size: 25, speed: 0.6, direction: Math.PI/3, flutterTimer: 0, 
+                 landedOnGirl: false, landTimer: 0},
+                {x: 620, y: 175, size: 25, speed: 0.4, direction: Math.PI/6, flutterTimer: 0, 
+                 landedOnGirl: false, landTimer: 0}
+            ],
+            
+            girlStillTimer: 0,
+            girlLastX: 0,
+            girlLastY: 0,
+            
+            update: function() {
+                // Track if girl is moving
+                if (girl.x === this.girlLastX && girl.y === this.girlLastY) {
+                    this.girlStillTimer++;
+                } else {
+                    this.girlStillTimer = 0;
+                    // Make butterflies fly away when girl moves
+                    this.butterflies.forEach(butterfly => {
+                        if (butterfly.landedOnGirl) {
+                            butterfly.landedOnGirl = false;
+                            butterfly.landTimer = 0;
+                        }
+                    });
                 }
-            }
-        },
-        
-        nyc: {
-            draw: function(ctx) {
-                // NYC background - skyscrapers
-                ctx.fillStyle = '#87CEEB'; // Sky blue
-                ctx.fillRect(0, 0, game.canvas.width, game.canvas.height);
+                this.girlLastX = girl.x;
+                this.girlLastY = girl.y;
                 
-                // Skyscrapers
-                const buildings = [
-                    {x: 100, y: 50, w: 80, h: 300, color: '#708090'},
-                    {x: 200, y: 100, w: 60, h: 250, color: '#2F4F4F'},
-                    {x: 280, y: 80, w: 70, h: 270, color: '#696969'},
-                    {x: 370, y: 60, w: 90, h: 290, color: '#778899'},
-                    {x: 480, y: 90, w: 75, h: 260, color: '#708090'},
-                    {x: 570, y: 70, w: 85, h: 280, color: '#2F4F4F'}
-                ];
-                
-                buildings.forEach(building => {
-                    ctx.fillStyle = building.color;
-                    ctx.fillRect(building.x, building.y, building.w, building.h);
+                // Update animals
+                this.animals.forEach(animal => {
+                    this.updateAnimal(animal);
                     
-                    // Windows
-                    ctx.fillStyle = '#FFD700';
-                    for (let row = 0; row < building.h / 20; row++) {
-                        for (let col = 0; col < building.w / 15; col++) {
-                            if (Math.random() > 0.3) {
-                                ctx.fillRect(building.x + col * 15 + 2, building.y + row * 20 + 2, 8, 8);
+                    // Check for fruit stealing by monkeys
+                    if (animal.behavior === 'monkey' && animal.wantsFood && girl.heldItem) {
+                        const fruitItems = ['apple', 'orange', 'banana'];
+                        if (fruitItems.includes(girl.heldItem.name.toLowerCase())) {
+                            const dist = Math.sqrt((animal.x - girl.x) ** 2 + (animal.y - girl.y) ** 2);
+                            if (dist < 60) {
+                                speechBubble.show(`The monkey stole your ${girl.heldItem.name}! 🐒`);
+                                girl.heldItem = null;
+                                animal.wantsFood = false;
+                                setTimeout(() => { animal.wantsFood = true; }, 10000); // Reset after 10 seconds
                             }
                         }
                     }
                 });
                 
+                // Update butterflies
+                this.butterflies.forEach(butterfly => {
+                    this.updateButterfly(butterfly);
+                });
+            },
+            
+            updateAnimal: function(animal) {
+                // Different behaviors for different animals
+                switch(animal.behavior) {
+                    case 'monkey':
+                        // Swing back and forth in trees
+                        animal.x += animal.speed * animal.direction;
+                        if (animal.x > animal.targetX + animal.range || animal.x < animal.targetX - animal.range) {
+                            animal.direction *= -1;
+                        }
+                        break;
+                        
+                    case 'bird':
+                        // Fly in patterns
+                        animal.x += animal.speed * animal.direction;
+                        animal.y += Math.sin(animal.x * 0.01) * 0.5;
+                        if (animal.x > animal.targetX + animal.range || animal.x < animal.targetX - animal.range) {
+                            animal.direction *= -1;
+                        }
+                        break;
+                        
+                    case 'prowl':
+                        // Predators prowl slowly
+                        animal.x += animal.speed * animal.direction;
+                        if (animal.x > animal.targetX + animal.range || animal.x < animal.targetX - animal.range) {
+                            animal.direction *= -1;
+                        }
+                        break;
+                        
+                    case 'graze':
+                        // Grazers move slowly, pause sometimes
+                        if (Math.random() < 0.98) { // Move 98% of the time
+                            animal.x += animal.speed * animal.direction;
+                        }
+                        if (animal.x > animal.targetX + animal.range || animal.x < animal.targetX - animal.range) {
+                            animal.direction *= -1;
+                        }
+                        break;
+                        
+                    case 'hop':
+                        // Frogs hop occasionally
+                        animal.hopTimer++;
+                        if (animal.hopTimer > 60) { // Hop every 60 frames
+                            animal.x += animal.speed * animal.direction * 10; // Big hop
+                            animal.hopTimer = 0;
+                            if (animal.x > animal.targetX + animal.range || animal.x < animal.targetX - animal.range) {
+                                animal.direction *= -1;
+                            }
+                        }
+                        break;
+                        
+                    case 'dart':
+                        // Lizards dart quickly then stop
+                        animal.dartTimer++;
+                        if (animal.dartTimer < 20) { // Dart for 20 frames
+                            animal.x += animal.speed * animal.direction * 2;
+                        } else if (animal.dartTimer > 80) { // Then wait 60 frames
+                            animal.dartTimer = 0;
+                            if (Math.random() < 0.3) animal.direction *= -1; // Sometimes change direction
+                        }
+                        if (animal.x > animal.targetX + animal.range || animal.x < animal.targetX - animal.range) {
+                            animal.direction *= -1;
+                        }
+                        break;
+                        
+                    case 'swim':
+                        // Swimming animals move smoothly
+                        animal.x += animal.speed * animal.direction;
+                        animal.y += Math.sin(animal.x * 0.02) * 0.3; // Gentle bobbing
+                        if (animal.x > animal.targetX + animal.range || animal.x < animal.targetX - animal.range) {
+                            animal.direction *= -1;
+                        }
+                        break;
+                }
+            },
+            
+            updateButterfly: function(butterfly) {
+                if (butterfly.landedOnGirl) {
+                    // Butterfly landed on girl
+                    butterfly.x = girl.x + girl.width/2;
+                    butterfly.y = girl.y - 20;
+                    butterfly.landTimer++;
+                    if (butterfly.landTimer > 180) { // Fly away after 3 seconds
+                        butterfly.landedOnGirl = false;
+                        butterfly.landTimer = 0;
+                    }
+                } else {
+                    // Normal butterfly flight
+                    butterfly.flutterTimer++;
+                    
+                    // Change direction occasionally
+                    if (butterfly.flutterTimer % 120 === 0) {
+                        butterfly.direction += (Math.random() - 0.5) * Math.PI/2;
+                    }
+                    
+                    // Flutter movement
+                    butterfly.x += Math.cos(butterfly.direction) * butterfly.speed;
+                    butterfly.y += Math.sin(butterfly.direction) * butterfly.speed + Math.sin(butterfly.flutterTimer * 0.1) * 0.5;
+                    
+                    // Keep butterflies in bounds
+                    if (butterfly.x < 50 || butterfly.x > game.canvas.width - 50) {
+                        butterfly.direction = Math.PI - butterfly.direction;
+                    }
+                    if (butterfly.y < 100 || butterfly.y > 250) {
+                        butterfly.direction = -butterfly.direction;
+                    }
+                    
+                    // Check if girl is still and butterfly can land
+                    if (this.girlStillTimer > 120 && !butterfly.landedOnGirl) { // Girl still for 2 seconds
+                        const dist = Math.sqrt((butterfly.x - girl.x) ** 2 + (butterfly.y - girl.y) ** 2);
+                        if (dist < 80 && Math.random() < 0.02) { // 2% chance per frame when close
+                            butterfly.landedOnGirl = true;
+                            butterfly.landTimer = 0;
+                            speechBubble.show('A beautiful butterfly landed on you! 🦋 Stay still!');
+                        }
+                    }
+                }
+            },
+            
+            draw: function(ctx) {
+                // Rainforest background - gradient from dark to light green
+                const gradient = ctx.createLinearGradient(0, 0, 0, game.canvas.height);
+                gradient.addColorStop(0, '#004225'); // Darker green for deep jungle
+                gradient.addColorStop(0.5, '#1B5E20'); // Forest green
+                gradient.addColorStop(1, '#2E7D32'); // Lime green
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, game.canvas.width, game.canvas.height);
+                
+                // Add dappled sunlight/shade effect
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+                for (let i = 0; i < 8; i++) {
+                    const x = i * 100 + Math.sin(i) * 30;
+                    const y = i * 40 + 50;
+                    ctx.beginPath();
+                    ctx.ellipse(x, y, 40, 80, Math.PI/6, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Heavy canopy shade patches
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                for (let i = 0; i < 6; i++) {
+                    const x = i * 130 + 65;
+                    const y = 60 + Math.sin(i) * 20;
+                    ctx.beginPath();
+                    ctx.ellipse(x, y, 60, 40, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Draw static trees with enhanced canopy
+                this.trees.forEach(tree => {
+                    // Tree trunk - larger and more detailed
+                    ctx.fillStyle = '#654321'; // Darker brown trunk
+                    ctx.fillRect(tree.x, tree.y, 25, 120);
+                    
+                    // Tree texture
+                    ctx.fillStyle = '#8B4513';
+                    ctx.fillRect(tree.x + 2, tree.y + 10, 3, 100);
+                    ctx.fillRect(tree.x + 20, tree.y + 20, 3, 80);
+                    
+                    // Large tree crown - multiple layers for thick canopy
+                    ctx.fillStyle = '#1B5E20'; // Very dark green base
+                    ctx.beginPath();
+                    ctx.arc(tree.x + 12, tree.y, 60, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.fillStyle = '#2E7D32'; // Medium green middle
+                    ctx.beginPath();
+                    ctx.arc(tree.x + 12, tree.y - 10, 50, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.fillStyle = '#4CAF50'; // Bright green top
+                    ctx.beginPath();
+                    ctx.arc(tree.x + 12, tree.y - 15, 40, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Many more hanging vines
+                    ctx.strokeStyle = '#2E7D32';
+                    ctx.lineWidth = 4;
+                    // Main vine
+                    ctx.beginPath();
+                    ctx.moveTo(tree.x + 15, tree.y + 20);
+                    ctx.quadraticCurveTo(tree.x + 35, tree.y + 60, tree.x + 25, tree.y + 120);
+                    ctx.stroke();
+                    
+                    // Secondary vines
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(tree.x + 5, tree.y + 30);
+                    ctx.quadraticCurveTo(tree.x - 10, tree.y + 70, tree.x + 5, tree.y + 110);
+                    ctx.stroke();
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(tree.x + 20, tree.y + 25);
+                    ctx.quadraticCurveTo(tree.x + 40, tree.y + 65, tree.x + 30, tree.y + 105);
+                    ctx.stroke();
+                    
+                    // Thin vine tendrils
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = '#388E3C';
+                    for (let v = 0; v < 3; v++) {
+                        ctx.beginPath();
+                        ctx.moveTo(tree.x + 8 + v * 6, tree.y + 35);
+                        ctx.quadraticCurveTo(tree.x + 12 + v * 8, tree.y + 75, tree.x + 10 + v * 5, tree.y + 100);
+                        ctx.stroke();
+                    }
+                });
+                
+                // Additional hanging vines between trees
+                ctx.strokeStyle = '#2E7D32';
+                ctx.lineWidth = 5;
+                for (let i = 0; i < 5; i++) {
+                    const x = 120 + i * 150;
+                    ctx.beginPath();
+                    ctx.moveTo(x, 80);
+                    ctx.quadraticCurveTo(x + 20, 150, x + 10, 280);
+                    ctx.stroke();
+                    
+                    // Add vine leaves
+                    ctx.fillStyle = '#4CAF50';
+                    for (let leaf = 0; leaf < 4; leaf++) {
+                        const leafY = 100 + leaf * 40;
+                        ctx.beginPath();
+                        ctx.ellipse(x + 15, leafY, 8, 12, Math.PI/4, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+                
+                // Dense jungle floor vegetation
+                ctx.fillStyle = '#1B5E20'; // Dark green undergrowth
+                for (let i = 0; i < 30; i++) {
+                    const x = i * 25 + 10;
+                    const y = 270 + (i % 4) * 8;
+                    // Large ferns
+                    ctx.fillRect(x, y, 12, 30);
+                    ctx.fillRect(x + 15, y + 8, 8, 22);
+                    ctx.fillRect(x + 25, y + 5, 10, 25);
+                }
+                
+                // River with realistic water
+                ctx.fillStyle = '#1565C0'; // Deeper blue for jungle river
+                ctx.fillRect(0, 310, game.canvas.width, 35);
+                // Water ripples
+                ctx.strokeStyle = '#42A5F5';
+                ctx.lineWidth = 1;
+                for (let i = 0; i < 10; i++) {
+                    ctx.beginPath();
+                    ctx.arc(i * 80 + 40, 325, 15, 0, Math.PI);
+                    ctx.stroke();
+                }
+                
+                // Draw moving animals with bigger sizes
+                ctx.textAlign = 'center';
+                this.animals.forEach(animal => {
+                    ctx.font = `${animal.size}px Arial`;
+                    ctx.fillText(animal.type, animal.x, animal.y);
+                });
+                
+                // Draw butterflies
+                this.butterflies.forEach(butterfly => {
+                    ctx.font = `${butterfly.size}px Arial`;
+                    ctx.fillText('🦋', butterfly.x, butterfly.y);
+                });
+                
+                // Additional small flying insects
+                ctx.font = '15px Arial';
+                ctx.fillText('🐝', 320, 165); // Bee
+                
                 // Return button
                 ctx.fillStyle = '#FFD700';
                 ctx.fillRect(50, 350, 100, 40);
+                ctx.strokeStyle = '#8B4513';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(50, 350, 100, 40);
                 ctx.fillStyle = 'black';
                 ctx.font = '12px Arial';
                 ctx.textAlign = 'center';
                 ctx.fillText('RETURN HOME', 100, 375);
                 
-                ctx.fillStyle = 'black';
+                // Title
+                ctx.fillStyle = 'white';
                 ctx.font = '24px Arial';
-                ctx.fillText('New York City! 🏙️', 400, 30);
+                ctx.strokeStyle = 'black';
+                ctx.lineWidth = 1;
+                ctx.strokeText('Amazon Rainforest! 🌳', 400, 40);
+                ctx.fillText('Amazon Rainforest! 🌳', 400, 40);
+                
+                // Animal sounds text
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.fillRect(550, 60, 200, 80);
+                ctx.fillStyle = 'green';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'left';
+                ctx.fillText('Listen! The jungle is alive:', 560, 80);
+                ctx.fillText('🐒 "Ooh ooh ah ah!"', 560, 95);
+                ctx.fillText('🦜 "Squawk squawk!"', 560, 110);
+                ctx.fillText('🐅 "Roaaaaar!"', 560, 125);
             },
             
             interact: function() {
@@ -3491,7 +4592,495 @@
                     game.currentScene = 'outdoor';
                     girl.x = 600;
                     girl.y = 250;
-                    speechBubble.show('Back home from NYC!');
+                    speechBubble.show('Back home from the amazing rainforest!');
+                }
+            }
+        },
+        
+        nyc: {
+            windowPattern: null, // Static window pattern to prevent flashing
+            
+            init: function() {
+                // Generate static window pattern once
+                this.windowPattern = [];
+                const buildings = [
+                    {x: 100, y: 50, w: 80, h: 300, color: '#708090', type: 'office'},
+                    {x: 200, y: 100, w: 60, h: 250, color: '#2F4F4F', type: 'hotel'},
+                    {x: 280, y: 80, w: 70, h: 270, color: '#696969', type: 'apartment'},
+                    {x: 370, y: 60, w: 90, h: 290, color: '#778899', type: 'office'},
+                    {x: 480, y: 90, w: 75, h: 260, color: '#708090', type: 'restaurant'},
+                    {x: 570, y: 70, w: 85, h: 280, color: '#2F4F4F', type: 'office'}
+                ];
+                
+                buildings.forEach((building, buildingIndex) => {
+                    this.windowPattern[buildingIndex] = [];
+                    for (let row = 0; row < building.h / 20; row++) {
+                        this.windowPattern[buildingIndex][row] = [];
+                        for (let col = 0; col < building.w / 15; col++) {
+                            // Create static pattern - most windows lit, some dark
+                            this.windowPattern[buildingIndex][row][col] = Math.random() > 0.25;
+                        }
+                    }
+                });
+            },
+            
+            draw: function(ctx) {
+                // Initialize pattern if not done
+                if (!this.windowPattern) {
+                    this.init();
+                }
+                
+                // NYC background - evening sky gradient
+                const gradient = ctx.createLinearGradient(0, 0, 0, game.canvas.height);
+                gradient.addColorStop(0, '#191970'); // Midnight blue
+                gradient.addColorStop(0.7, '#4169E1'); // Royal blue
+                gradient.addColorStop(1, '#87CEEB'); // Sky blue
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, game.canvas.width, game.canvas.height);
+                
+                // City lights glow
+                ctx.fillStyle = 'rgba(255, 215, 0, 0.1)';
+                ctx.fillRect(0, game.canvas.height - 100, game.canvas.width, 100);
+                
+                // Skyscrapers with static windows
+                const buildings = [
+                    {x: 100, y: 50, w: 80, h: 300, color: '#708090', type: 'office', name: 'Office Tower'},
+                    {x: 200, y: 100, w: 60, h: 250, color: '#2F4F4F', type: 'hotel', name: 'NYC Hotel'},
+                    {x: 280, y: 80, w: 70, h: 270, color: '#696969', type: 'apartment', name: 'Apartments'},
+                    {x: 370, y: 60, w: 90, h: 290, color: '#778899', type: 'office', name: 'Corp Building'},
+                    {x: 480, y: 90, w: 75, h: 260, color: '#708090', type: 'restaurant', name: 'Food Court'},
+                    {x: 570, y: 70, w: 85, h: 280, color: '#2F4F4F', type: 'office', name: 'Finance Tower'}
+                ];
+                
+                buildings.forEach((building, buildingIndex) => {
+                    // Building body
+                    ctx.fillStyle = building.color;
+                    ctx.fillRect(building.x, building.y, building.w, building.h);
+                    ctx.strokeStyle = '#000';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(building.x, building.y, building.w, building.h);
+                    
+                    // Static windows
+                    if (this.windowPattern[buildingIndex]) {
+                        for (let row = 0; row < building.h / 20; row++) {
+                            for (let col = 0; col < building.w / 15; col++) {
+                                if (this.windowPattern[buildingIndex][row] && this.windowPattern[buildingIndex][row][col]) {
+                                    ctx.fillStyle = '#FFD700'; // Lit window
+                                } else {
+                                    ctx.fillStyle = '#4169E1'; // Dark window
+                                }
+                                ctx.fillRect(building.x + col * 15 + 2, building.y + row * 20 + 2, 10, 12);
+                            }
+                        }
+                    }
+                    
+                    // Building entrance
+                    ctx.fillStyle = '#8B4513';
+                    ctx.fillRect(building.x + building.w/2 - 10, building.y + building.h - 20, 20, 20);
+                    
+                    // Building sign
+                    if (building.type === 'hotel') {
+                        ctx.fillStyle = '#FF1493'; // Hot pink for hotel
+                        ctx.fillRect(building.x + 5, building.y + 20, building.w - 10, 25);
+                        ctx.fillStyle = 'white';
+                        ctx.font = '12px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('HOTEL NYC', building.x + building.w/2, building.y + 37);
+                    } else if (building.type === 'restaurant') {
+                        ctx.fillStyle = '#FF6347'; // Tomato for restaurant
+                        ctx.fillRect(building.x + 5, building.y + 20, building.w - 10, 25);
+                        ctx.fillStyle = 'white';
+                        ctx.font = '10px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('FOOD COURT', building.x + building.w/2, building.y + 37);
+                    }
+                    
+                    // Entrance interaction hint
+                    if (girl.x < building.x + building.w &&
+                        girl.x + girl.width > building.x &&
+                        girl.y < building.y + building.h &&
+                        girl.y + girl.height > building.y + building.h - 30) {
+                        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                        ctx.fillRect(building.x - 10, building.y + building.h - 60, building.w + 20, 15);
+                        ctx.fillStyle = 'black';
+                        ctx.font = '10px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(`Press SPACE: Enter ${building.name}`, building.x + building.w/2, building.y + building.h - 50);
+                    }
+                });
+                
+                // Street level details
+                ctx.fillStyle = '#696969'; // Gray street
+                ctx.fillRect(0, game.canvas.height - 50, game.canvas.width, 50);
+                
+                // Street lamps
+                for (let i = 0; i < 4; i++) {
+                    const lampX = 150 + i * 150;
+                    ctx.fillStyle = '#2F2F2F';
+                    ctx.fillRect(lampX, game.canvas.height - 80, 5, 30);
+                    ctx.fillStyle = '#FFD700';
+                    ctx.beginPath();
+                    ctx.arc(lampX + 2.5, game.canvas.height - 80, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Yellow taxi
+                ctx.fillStyle = '#FFD700';
+                ctx.fillRect(350, game.canvas.height - 45, 60, 25);
+                ctx.fillStyle = '#000';
+                ctx.fillRect(355, game.canvas.height - 35, 50, 10);
+                ctx.font = '8px Arial';
+                ctx.fillText('TAXI', 375, game.canvas.height - 27);
+                
+                // Return button
+                ctx.fillStyle = '#FFD700';
+                ctx.fillRect(50, 350, 100, 40);
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(50, 350, 100, 40);
+                ctx.fillStyle = 'black';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('RETURN HOME', 100, 375);
+                
+                // Title
+                ctx.fillStyle = 'white';
+                ctx.font = '24px Arial';
+                ctx.strokeStyle = 'black';
+                ctx.lineWidth = 1;
+                ctx.strokeText('New York City! 🏙️', 400, 30);
+                ctx.fillText('New York City! 🏙️', 400, 30);
+            },
+            
+            interact: function() {
+                // Check building entrances
+                const buildings = [
+                    {x: 100, y: 50, w: 80, h: 300, type: 'office', scene: 'nyc_office'},
+                    {x: 200, y: 100, w: 60, h: 250, type: 'hotel', scene: 'nyc_hotel'},
+                    {x: 280, y: 80, w: 70, h: 270, type: 'apartment', scene: 'nyc_apartment'},
+                    {x: 370, y: 60, w: 90, h: 290, type: 'office', scene: 'nyc_office2'},
+                    {x: 480, y: 90, w: 75, h: 260, type: 'restaurant', scene: 'nyc_restaurant'},
+                    {x: 570, y: 70, w: 85, h: 280, type: 'office', scene: 'nyc_office3'}
+                ];
+                
+                for (let building of buildings) {
+                    if (girl.x < building.x + building.w &&
+                        girl.x + girl.width > building.x &&
+                        girl.y < building.y + building.h &&
+                        girl.y + girl.height > building.y + building.h - 30) {
+                        
+                        if (building.type === 'hotel') {
+                            game.currentScene = 'nyc_hotel';
+                            girl.x = 100;
+                            girl.y = 300;
+                            speechBubble.show('Welcome to Hotel NYC! 🏨');
+                        } else if (building.type === 'restaurant') {
+                            game.currentScene = 'nyc_restaurant';
+                            girl.x = 100;
+                            girl.y = 300;
+                            speechBubble.show('Welcome to NYC Food Court! 🍕');
+                        } else {
+                            speechBubble.show('This building is closed for now. Try the hotel or restaurant!');
+                        }
+                        return;
+                    }
+                }
+                
+                // Check return button
+                if (girl.x < 150 && girl.x + girl.width > 50 &&
+                    girl.y < 390 && girl.y + girl.height > 350) {
+                    game.currentScene = 'outdoor';
+                    girl.x = 600;
+                    girl.y = 250;
+                    speechBubble.show('Goodbye Big Apple! Back home!');
+                }
+            }
+        },
+        
+        nyc_hotel: {
+            draw: function(ctx) {
+                // Hotel lobby background
+                ctx.fillStyle = '#F5F5DC'; // Beige
+                ctx.fillRect(0, 0, game.canvas.width, game.canvas.height);
+                
+                // Marble floor pattern
+                ctx.fillStyle = '#E0E0E0';
+                for (let x = 0; x < game.canvas.width; x += 50) {
+                    for (let y = 0; y < game.canvas.height; y += 50) {
+                        ctx.fillRect(x, y, 25, 25);
+                    }
+                }
+                
+                // Reception desk
+                ctx.fillStyle = '#8B4513'; // Brown wood
+                ctx.fillRect(300, 200, 200, 80);
+                ctx.fillStyle = '#DAA520'; // Gold trim
+                ctx.fillRect(295, 195, 210, 90);
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(300, 200, 200, 80);
+                
+                // Reception sign
+                ctx.fillStyle = '#FFD700';
+                ctx.fillRect(350, 150, 100, 40);
+                ctx.fillStyle = 'black';
+                ctx.font = '16px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('RECEPTION', 400, 175);
+                
+                // Hotel receptionist
+                ctx.fillStyle = '#FFB6C1'; // Pink face
+                ctx.fillRect(390, 180, 20, 25);
+                ctx.fillStyle = '#000080'; // Navy uniform
+                ctx.fillRect(385, 205, 30, 40);
+                ctx.fillStyle = 'black';
+                ctx.font = '10px Arial';
+                ctx.fillText('👩‍💼', 400, 220);
+                
+                // Fancy chandelier
+                ctx.fillStyle = '#FFD700';
+                ctx.beginPath();
+                ctx.arc(400, 100, 40, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#FFF8DC';
+                for (let i = 0; i < 8; i++) {
+                    const angle = (i * Math.PI * 2) / 8;
+                    const x = 400 + Math.cos(angle) * 30;
+                    const y = 100 + Math.sin(angle) * 30;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Elevator
+                ctx.fillStyle = '#C0C0C0';
+                ctx.fillRect(100, 150, 60, 100);
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(100, 150, 60, 100);
+                ctx.fillStyle = 'black';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('ELEVATOR', 130, 205);
+                ctx.font = '20px Arial';
+                ctx.fillText('🛗', 130, 180);
+                
+                // Luxury seating area
+                ctx.fillStyle = '#8B0000'; // Dark red velvet
+                ctx.fillRect(550, 250, 80, 40); // Sofa
+                ctx.fillRect(550, 200, 80, 40); // Another sofa
+                ctx.fillStyle = '#DAA520';
+                ctx.fillRect(580, 240, 20, 30); // Coffee table
+                
+                // Plants
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(200, 300, 15, 30);
+                ctx.fillStyle = '#228B22';
+                ctx.beginPath();
+                ctx.arc(207, 290, 20, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(680, 180, 15, 30);
+                ctx.fillStyle = '#228B22';
+                ctx.beginPath();
+                ctx.arc(687, 170, 20, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Hotel services sign
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.fillRect(50, 50, 200, 120);
+                ctx.strokeStyle = '#DAA520';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(50, 50, 200, 120);
+                
+                ctx.fillStyle = 'black';
+                ctx.font = '14px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('HOTEL NYC SERVICES', 150, 75);
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'left';
+                ctx.fillText('🛏️ Luxury Rooms', 60, 95);
+                ctx.fillText('🍽️ Room Service', 60, 110);
+                ctx.fillText('🏊 Pool & Spa', 60, 125);
+                ctx.fillText('🅿️ Valet Parking', 60, 140);
+                ctx.fillText('🎭 Broadway Tickets', 60, 155);
+                
+                // Exit button
+                ctx.fillStyle = '#FFD700';
+                ctx.fillRect(650, 350, 100, 40);
+                ctx.strokeStyle = '#8B4513';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(650, 350, 100, 40);
+                ctx.fillStyle = 'black';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('EXIT HOTEL', 700, 375);
+                
+                // Interaction hint for reception
+                if (girl.x < 500 && girl.x + girl.width > 300 &&
+                    girl.y < 280 && girl.y + girl.height > 200) {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                    ctx.fillRect(350, 120, 100, 15);
+                    ctx.fillStyle = 'black';
+                    ctx.font = '10px Arial';
+                    ctx.fillText('Press SPACE to check in', 400, 132);
+                }
+            },
+            
+            interact: function() {
+                // Reception interaction
+                if (girl.x < 500 && girl.x + girl.width > 300 &&
+                    girl.y < 280 && girl.y + girl.height > 200) {
+                    speechBubble.show('Welcome to Hotel NYC! Enjoy your stay in the Big Apple! 🗽');
+                    return;
+                }
+                
+                // Exit hotel
+                if (girl.x < 750 && girl.x + girl.width > 650 &&
+                    girl.y < 390 && girl.y + girl.height > 350) {
+                    game.currentScene = 'nyc';
+                    girl.x = 230;
+                    girl.y = 320;
+                    speechBubble.show('Back to the NYC streets!');
+                }
+            }
+        },
+        
+        nyc_restaurant: {
+            draw: function(ctx) {
+                // Restaurant background
+                ctx.fillStyle = '#FFF8DC'; // Cornsilk
+                ctx.fillRect(0, 0, game.canvas.width, game.canvas.height);
+                
+                // Checkered floor
+                for (let x = 0; x < game.canvas.width; x += 40) {
+                    for (let y = 0; y < game.canvas.height; y += 40) {
+                        ctx.fillStyle = ((x + y) / 40) % 2 === 0 ? '#000' : '#FFF';
+                        ctx.fillRect(x, y, 40, 40);
+                    }
+                }
+                
+                // Food counter
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(200, 150, 400, 60);
+                ctx.fillStyle = '#FF6347';
+                ctx.fillRect(195, 145, 410, 70);
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(200, 150, 400, 60);
+                
+                // Food display
+                ctx.font = '30px Arial';
+                ctx.fillText('🍕', 230, 185);
+                ctx.fillText('🍔', 280, 185);
+                ctx.fillText('🌭', 330, 185);
+                ctx.fillText('🍟', 380, 185);
+                ctx.fillText('🥤', 430, 185);
+                ctx.fillText('🍰', 480, 185);
+                ctx.fillText('🍪', 530, 185);
+                
+                // Restaurant sign
+                ctx.fillStyle = '#FF6347';
+                ctx.fillRect(300, 100, 200, 40);
+                ctx.fillStyle = 'white';
+                ctx.font = '18px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('NYC FOOD COURT', 400, 125);
+                
+                // Food worker
+                ctx.fillStyle = '#FFB6C1'; // Pink face
+                ctx.fillRect(390, 120, 20, 25);
+                ctx.fillStyle = '#FFFFFF'; // White uniform
+                ctx.fillRect(385, 145, 30, 40);
+                ctx.fillStyle = 'black';
+                ctx.font = '10px Arial';
+                ctx.fillText('👨‍🍳', 400, 160);
+                
+                // Tables and chairs
+                const tables = [
+                    {x: 100, y: 250},
+                    {x: 300, y: 280},
+                    {x: 500, y: 250},
+                    {x: 650, y: 280}
+                ];
+                
+                tables.forEach(table => {
+                    // Table
+                    ctx.fillStyle = '#8B4513';
+                    ctx.fillRect(table.x, table.y, 60, 40);
+                    // Chairs
+                    ctx.fillStyle = '#DAA520';
+                    ctx.fillRect(table.x - 15, table.y + 10, 15, 20);
+                    ctx.fillRect(table.x + 60, table.y + 10, 15, 20);
+                });
+                
+                // Menu board
+                ctx.fillStyle = '#000';
+                ctx.fillRect(50, 50, 150, 180);
+                ctx.fillStyle = 'white';
+                ctx.font = '14px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('MENU', 125, 75);
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'left';
+                ctx.fillText('🍕 Pizza Slice - $3', 60, 100);
+                ctx.fillText('🍔 Burger - $8', 60, 120);
+                ctx.fillText('🌭 Hot Dog - $5', 60, 140);
+                ctx.fillText('🍟 Fries - $4', 60, 160);
+                ctx.fillText('🥤 Soda - $2', 60, 180);
+                ctx.fillText('🍰 Cake - $6', 60, 200);
+                ctx.fillText('🍪 Cookie - $3', 60, 220);
+                
+                // NYC skyline view through window
+                ctx.fillStyle = '#87CEEB';
+                ctx.fillRect(650, 50, 150, 120);
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(650, 50, 150, 120);
+                ctx.fillStyle = '#696969';
+                ctx.fillRect(670, 80, 20, 80);
+                ctx.fillRect(700, 70, 25, 90);
+                ctx.fillRect(730, 90, 18, 70);
+                ctx.fillRect(755, 75, 22, 85);
+                
+                // Exit button
+                ctx.fillStyle = '#FFD700';
+                ctx.fillRect(650, 350, 100, 40);
+                ctx.strokeStyle = '#8B4513';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(650, 350, 100, 40);
+                ctx.fillStyle = 'black';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('EXIT RESTAURANT', 700, 375);
+                
+                // Interaction hint for food counter
+                if (girl.x < 600 && girl.x + girl.width > 200 &&
+                    girl.y < 210 && girl.y + girl.height > 150) {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                    ctx.fillRect(350, 230, 100, 15);
+                    ctx.fillStyle = 'black';
+                    ctx.font = '10px Arial';
+                    ctx.fillText('Press SPACE to order', 400, 242);
+                }
+            },
+            
+            interact: function() {
+                // Food counter interaction
+                if (girl.x < 600 && girl.x + girl.width > 200 &&
+                    girl.y < 210 && girl.y + girl.height > 150) {
+                    const foods = ['pizza slice 🍕', 'burger 🍔', 'hot dog 🌭', 'fries 🍟', 'cake 🍰'];
+                    const randomFood = foods[Math.floor(Math.random() * foods.length)];
+                    speechBubble.show(`Here's your ${randomFood}! Enjoy your NYC meal!`);
+                    return;
+                }
+                
+                // Exit restaurant
+                if (girl.x < 750 && girl.x + girl.width > 650 &&
+                    girl.y < 390 && girl.y + girl.height > 350) {
+                    game.currentScene = 'nyc';
+                    girl.x = 520;
+                    girl.y = 320;
+                    speechBubble.show('Back to the busy NYC streets!');
                 }
             }
         },
@@ -3517,11 +5106,13 @@
                     ctx.fill();
                 }
                 
-                // Unicorns and rainbows
+                // Full unicorns with custom art
+                this.drawUnicorn(ctx, 200, 220);
+                this.drawUnicorn(ctx, 400, 250);
+                this.drawUnicorn(ctx, 600, 230);
+                
+                // Rainbows and stars
                 ctx.font = '40px Arial';
-                ctx.fillText('🦄', 200, 250);
-                ctx.fillText('🦄', 400, 280);
-                ctx.fillText('🦄', 600, 260);
                 ctx.fillText('🌈', 100, 200);
                 ctx.fillText('🌈', 500, 180);
                 ctx.fillText('⭐', 150, 150);
@@ -3541,6 +5132,104 @@
                 ctx.fillText('Rainbow Unicorn Land! 🦄🌈', 400, 50);
             },
             
+            drawUnicorn: function(ctx, x, y) {
+                // Unicorn body
+                ctx.fillStyle = '#FFFFFF';
+                ctx.beginPath();
+                ctx.ellipse(x, y, 35, 20, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#E0E0E0';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Unicorn legs
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(x - 25, y + 15, 8, 25);
+                ctx.fillRect(x - 10, y + 15, 8, 25);
+                ctx.fillRect(x + 5, y + 15, 8, 25);
+                ctx.fillRect(x + 20, y + 15, 8, 25);
+                
+                // Unicorn neck
+                ctx.fillStyle = '#FFFFFF';
+                ctx.beginPath();
+                ctx.ellipse(x - 30, y - 10, 15, 25, 0.3, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Unicorn head
+                ctx.fillStyle = '#FFFFFF';
+                ctx.beginPath();
+                ctx.ellipse(x - 40, y - 25, 20, 15, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Unicorn horn (magical!)
+                ctx.fillStyle = '#FFD700';
+                ctx.beginPath();
+                ctx.moveTo(x - 40, y - 40);
+                ctx.lineTo(x - 35, y - 25);
+                ctx.lineTo(x - 45, y - 25);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Horn spiral pattern
+                ctx.strokeStyle = '#FF69B4';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(x - 40, y - 35, 3, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(x - 40, y - 30, 2, 0, Math.PI * 2);
+                ctx.stroke();
+                
+                // Unicorn mane (rainbow colors)
+                const maneColors = ['#FF0000', '#FF7F00', '#FFFF00', '#00FF00', '#0000FF', '#8B00FF'];
+                maneColors.forEach((color, index) => {
+                    ctx.fillStyle = color;
+                    ctx.beginPath();
+                    ctx.ellipse(x - 50 + index * 3, y - 20 - index * 2, 8, 12, 0.2 * index, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                
+                // Unicorn tail (also rainbow!)
+                maneColors.forEach((color, index) => {
+                    ctx.fillStyle = color;
+                    ctx.beginPath();
+                    ctx.ellipse(x + 30 + index * 2, y + 5 - index, 6, 15, -0.3, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                
+                // Eye
+                ctx.fillStyle = '#000000';
+                ctx.beginPath();
+                ctx.arc(x - 45, y - 28, 3, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Eye sparkle
+                ctx.fillStyle = '#FFFFFF';
+                ctx.beginPath();
+                ctx.arc(x - 44, y - 29, 1, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Nostril
+                ctx.fillStyle = '#FFB6C1';
+                ctx.beginPath();
+                ctx.arc(x - 50, y - 22, 2, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Magical sparkles around unicorn (static positions)
+                ctx.fillStyle = '#FFD700';
+                ctx.font = '12px Arial';
+                const sparklePositions = [
+                    {x: x - 20, y: y - 40},
+                    {x: x + 10, y: y - 35},
+                    {x: x - 35, y: y + 10},
+                    {x: x + 25, y: y - 15},
+                    {x: x - 10, y: y + 30}
+                ];
+                sparklePositions.forEach(pos => {
+                    ctx.fillText('✨', pos.x, pos.y);
+                });
+            },
+            
             interact: function() {
                 if (girl.x < 150 && girl.x + girl.width > 50 &&
                     girl.y < 390 && girl.y + girl.height > 350) {
@@ -3554,60 +5243,254 @@
         
         china: {
             draw: function(ctx) {
-                // China background with Great Wall
-                ctx.fillStyle = '#87CEEB'; // Sky blue
+                // Sky background with warm golden tint
+                const gradient = ctx.createLinearGradient(0, 0, 0, game.canvas.height);
+                gradient.addColorStop(0, '#FFD700'); // Golden top
+                gradient.addColorStop(0.4, '#FFA500'); // Orange middle
+                gradient.addColorStop(1, '#DC143C'); // Crimson bottom
+                ctx.fillStyle = gradient;
                 ctx.fillRect(0, 0, game.canvas.width, game.canvas.height);
                 
-                // Mountains
-                ctx.fillStyle = '#8B7355';
-                for (let i = 0; i < 5; i++) {
-                    const x = i * 150;
-                    ctx.beginPath();
-                    ctx.moveTo(x, 400);
-                    ctx.lineTo(x + 75, 150);
-                    ctx.lineTo(x + 150, 400);
-                    ctx.closePath();
-                    ctx.fill();
+                // Street level
+                ctx.fillStyle = '#696969';
+                ctx.fillRect(0, 320, game.canvas.width, 80);
+                
+                // Traditional Chinese buildings with red and gold
+                this.drawChineseBuilding(ctx, 50, 150, 120, 170, '#DC143C', '#FFD700', '面馆'); // Noodle Shop
+                this.drawChineseBuilding(ctx, 200, 180, 100, 140, '#B22222', '#FFA500', '豆腐'); // Tofu Shop
+                this.drawChineseBuilding(ctx, 330, 160, 110, 160, '#8B0000', '#FFD700', '茶楼'); // Tea House
+                this.drawChineseBuilding(ctx, 470, 140, 130, 180, '#DC143C', '#FF6347', '餐厅'); // Restaurant
+                this.drawChineseBuilding(ctx, 630, 170, 120, 150, '#B22222', '#FFD700', '酒店'); // Hotel
+                
+                // Red lanterns hanging from buildings
+                this.drawLantern(ctx, 110, 120, '#DC143C');
+                this.drawLantern(ctx, 250, 150, '#FF0000');
+                this.drawLantern(ctx, 380, 130, '#DC143C');
+                this.drawLantern(ctx, 530, 110, '#FF0000');
+                this.drawLantern(ctx, 690, 140, '#DC143C');
+                
+                // Street decorations
+                ctx.font = '20px Arial';
+                ctx.fillText('🏮', 300, 100);
+                ctx.fillText('🏮', 450, 85);
+                ctx.fillText('🐉', 150, 340);
+                ctx.fillText('🐉', 600, 345);
+                
+                // Noodle shop entrance hint
+                if (girl.x < 170 && girl.x + girl.width > 50 &&
+                    girl.y < 320 && girl.y + girl.height > 280) {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                    ctx.fillRect(60, 280, 100, 20);
+                    ctx.fillStyle = 'black';
+                    ctx.font = '12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('Press SPACE for 🍜', 110, 295);
                 }
                 
-                // Great Wall
-                ctx.fillStyle = '#CD853F';
-                ctx.fillRect(0, 200, game.canvas.width, 30);
-                // Wall towers
-                for (let i = 0; i < 4; i++) {
-                    const x = i * 200 + 100;
-                    ctx.fillRect(x, 170, 40, 60);
-                    ctx.fillStyle = '#8B4513';
-                    ctx.fillRect(x + 5, 160, 30, 15);
-                    ctx.fillStyle = '#CD853F';
+                // Tofu shop entrance hint and progress
+                if (girl.x < 300 && girl.x + girl.width > 200 &&
+                    girl.y < 320 && girl.y + girl.height > 280) {
+                    if (this.tofuIngredients.complete) {
+                        ctx.fillStyle = 'rgba(144, 238, 144, 0.9)';
+                        ctx.fillRect(210, 280, 80, 20);
+                        ctx.fillStyle = 'black';
+                        ctx.font = '12px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('Tofu Ready! 🍚', 250, 295);
+                    } else {
+                        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                        ctx.fillRect(210, 280, 80, 20);
+                        ctx.fillStyle = 'black';
+                        ctx.font = '12px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('Make Tofu!', 250, 295);
+                    }
                 }
                 
-                // Chinese elements
-                ctx.font = '30px Arial';
-                ctx.fillText('🐉', 300, 300);
-                ctx.fillText('🏮', 150, 320);
-                ctx.fillText('🏮', 550, 310);
+                // Tofu progress indicator
+                if (this.tofuIngredients.soybeans || this.tofuIngredients.water || this.tofuIngredients.salt) {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                    ctx.fillRect(200, 100, 100, 60);
+                    ctx.strokeStyle = '#DC143C';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(200, 100, 100, 60);
+                    
+                    ctx.fillStyle = '#DC143C';
+                    ctx.font = '10px Arial';
+                    ctx.textAlign = 'left';
+                    ctx.fillText('Tofu Progress:', 205, 115);
+                    ctx.fillText(`大豆: ${this.tofuIngredients.soybeans ? '✓' : '○'}`, 205, 130);
+                    ctx.fillText(`水: ${this.tofuIngredients.water ? '✓' : '○'}`, 205, 145);
+                    ctx.fillText(`盐: ${this.tofuIngredients.salt ? '✓' : '○'}`, 205, 155);
+                }
                 
                 // Return button
                 ctx.fillStyle = '#FFD700';
                 ctx.fillRect(50, 350, 100, 40);
-                ctx.fillStyle = 'black';
+                ctx.strokeStyle = '#DC143C';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(50, 350, 100, 40);
+                ctx.fillStyle = '#DC143C';
                 ctx.font = '12px Arial';
                 ctx.textAlign = 'center';
                 ctx.fillText('RETURN HOME', 100, 375);
                 
-                ctx.fillStyle = 'black';
+                // Title with Chinese characters
+                ctx.fillStyle = '#FFD700';
                 ctx.font = '24px Arial';
-                ctx.fillText('Welcome to China! 🏯', 400, 50);
+                ctx.textAlign = 'center';
+                ctx.fillText('中国城市 - Chinese City! 🏮', 400, 50);
+            },
+            
+            drawChineseBuilding: function(ctx, x, y, width, height, roofColor, accentColor, chineseText) {
+                // Building base
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(x, y, width, height);
+                ctx.strokeStyle = '#654321';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x, y, width, height);
+                
+                // Traditional roof
+                ctx.fillStyle = roofColor;
+                ctx.beginPath();
+                ctx.moveTo(x - 10, y);
+                ctx.lineTo(x + width/2, y - 30);
+                ctx.lineTo(x + width + 10, y);
+                ctx.closePath();
+                ctx.fill();
+                ctx.strokeStyle = '#000';
+                ctx.stroke();
+                
+                // Roof decorations
+                ctx.fillStyle = accentColor;
+                ctx.fillRect(x + width/2 - 5, y - 35, 10, 8);
+                
+                // Windows
+                ctx.fillStyle = '#FFFF00';
+                for (let i = 0; i < 2; i++) {
+                    for (let j = 0; j < Math.floor(height/40); j++) {
+                        ctx.fillRect(x + 15 + i * (width - 50), y + 20 + j * 40, 20, 20);
+                        ctx.strokeStyle = '#000';
+                        ctx.strokeRect(x + 15 + i * (width - 50), y + 20 + j * 40, 20, 20);
+                    }
+                }
+                
+                // Door
+                ctx.fillStyle = '#8B0000';
+                ctx.fillRect(x + width/2 - 15, y + height - 40, 30, 40);
+                ctx.strokeStyle = '#000';
+                ctx.strokeRect(x + width/2 - 15, y + height - 40, 30, 40);
+                
+                // Chinese sign
+                ctx.fillStyle = accentColor;
+                ctx.fillRect(x + 10, y + 30, width - 20, 25);
+                ctx.strokeStyle = '#000';
+                ctx.strokeRect(x + 10, y + 30, width - 20, 25);
+                ctx.fillStyle = '#000';
+                ctx.font = '16px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(chineseText, x + width/2, y + 48);
+            },
+            
+            drawLantern: function(ctx, x, y, color) {
+                // Lantern body
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.ellipse(x, y, 15, 20, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#FFD700';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Lantern top
+                ctx.fillStyle = '#000';
+                ctx.fillRect(x - 5, y - 25, 10, 8);
+                
+                // Lantern string
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(x, y - 30);
+                ctx.lineTo(x, y - 45);
+                ctx.stroke();
+                
+                // Lantern bottom decoration
+                ctx.fillStyle = '#FFD700';
+                ctx.fillRect(x - 2, y + 15, 4, 10);
+            },
+            
+            tofuIngredients: {
+                soybeans: false,
+                water: false,
+                salt: false,
+                complete: false
             },
             
             interact: function() {
+                // Return home
                 if (girl.x < 150 && girl.x + girl.width > 50 &&
                     girl.y < 390 && girl.y + girl.height > 350) {
                     game.currentScene = 'outdoor';
                     girl.x = 600;
                     girl.y = 250;
-                    speechBubble.show('Back home from China!');
+                    speechBubble.show('Back home from China! 再见! (Goodbye!)');
+                    return;
+                }
+                
+                // Noodle shop interaction
+                if (girl.x < 170 && girl.x + girl.width > 50 &&
+                    girl.y < 320 && girl.y + girl.height > 280) {
+                    const noodleTypes = [
+                        '拉面 (Ramen)', '乌冬面 (Udon)', '米粉 (Rice Noodles)', 
+                        '炒面 (Chow Mein)', '担担面 (Dan Dan Noodles)'
+                    ];
+                    const randomNoodle = noodleTypes[Math.floor(Math.random() * noodleTypes.length)];
+                    speechBubble.show(`Here's your delicious ${randomNoodle}! 好吃! (Delicious!)`);
+                    return;
+                }
+                
+                // Tofu shop interaction
+                if (girl.x < 300 && girl.x + girl.width > 200 &&
+                    girl.y < 320 && girl.y + girl.height > 280) {
+                    
+                    if (this.tofuIngredients.complete) {
+                        speechBubble.show('Your fresh tofu is ready! 豆腐做好了! So silky and delicious! 🍚');
+                        this.tofuIngredients = { soybeans: false, water: false, salt: false, complete: false };
+                        return;
+                    }
+                    
+                    if (!this.tofuIngredients.soybeans) {
+                        this.tofuIngredients.soybeans = true;
+                        speechBubble.show('Added fresh soybeans! 大豆 (Soybeans) are the main ingredient!');
+                        return;
+                    }
+                    
+                    if (!this.tofuIngredients.water) {
+                        this.tofuIngredients.water = true;
+                        speechBubble.show('Added pure mountain water! 水 (Water) to soak the beans!');
+                        return;
+                    }
+                    
+                    if (!this.tofuIngredients.salt) {
+                        this.tofuIngredients.salt = true;
+                        speechBubble.show('Added sea salt! 盐 (Salt) as a coagulant!');
+                        
+                        // Start tofu making process
+                        setTimeout(() => {
+                            speechBubble.show('Grinding soybeans... 磨豆 Making soy milk...');
+                            setTimeout(() => {
+                                speechBubble.show('Heating and adding salt... 加热 Forming curds...');
+                                setTimeout(() => {
+                                    speechBubble.show('Pressing into tofu blocks... 压制 Almost ready!');
+                                    setTimeout(() => {
+                                        this.tofuIngredients.complete = true;
+                                        speechBubble.show('Tofu making complete! Press SPACE to collect your fresh tofu!');
+                                    }, 1500);
+                                }, 1500);
+                            }, 1500);
+                        }, 1000);
+                        return;
+                    }
                 }
             }
         }
@@ -4016,6 +5899,10 @@
                 if (girl.carryingChicken) {
                     girl.dropChicken();
                 }
+            } else if (e.key === 't' || e.key === 'T') {
+                if (game.currentScene === 'airplane') {
+                    airplane.changeChannel();
+                }
             }
         },
 
@@ -4050,6 +5937,8 @@
                 bathroom.interact();
             } else if (game.currentScene === 'airport') {
                 airport.interact();
+            } else if (game.currentScene === 'airplane') {
+                airplane.interact();
             } else if (destinations[game.currentScene]) {
                 destinations[game.currentScene].interact();
             }
@@ -4254,6 +6143,7 @@
     bathroom.init();
     airport.init();
     friend.init();
+    destinations.nyc.init();
 
     // Show debug help on load
     console.log('=== JOJO GAME DEBUG SYSTEM ===');
