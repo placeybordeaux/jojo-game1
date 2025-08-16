@@ -29,6 +29,7 @@
         imagesLoaded: 0,
         totalImages: 0,
         currentScene: 'indoor',
+        debugMenuOpen: false,
 
         init: function() {
             this.canvas = document.getElementById('gameCanvas');
@@ -161,6 +162,7 @@
             speechBubble.draw(this.ctx);
             inventory.updateHTML();  // Update HTML sidebar
             inventory.draw(this.ctx);         // Full overlay when open
+            this.drawDebugMenu();             // Debug menu on top
         },
 
         checkSceneTransition: function() {
@@ -205,6 +207,84 @@
                 girl.x = bathroomDoor.x + bathroomDoor.width + 5;
                 girl.y = bathroomDoor.y + 20;
             }
+        },
+
+        toggleDebugMenu: function() {
+            this.debugMenuOpen = !this.debugMenuOpen;
+        },
+
+        handleDebugTravel: function(key) {
+            const locations = {
+                1: { scene: 'indoor', x: 100, y: 300 },
+                2: { scene: 'outdoor', x: 100, y: 300 },
+                3: { scene: 'kitchen', x: 100, y: 300 },
+                4: { scene: 'bathroom', x: 100, y: 300 },
+                5: { scene: 'airport', x: 100, y: 300 },
+                6: { scene: 'airplane', x: 100, y: 300 },
+                7: { scene: 'paris', x: 100, y: 300 },
+                8: { scene: 'nyc', x: 100, y: 300 },
+                9: { scene: 'unicornland', x: 100, y: 300 }
+            };
+
+            const location = locations[key];
+            if (location) {
+                this.currentScene = location.scene;
+                girl.x = location.x;
+                girl.y = location.y;
+                speechBubble.show(`Debug teleport to ${location.scene}!`);
+                this.debugMenuOpen = false;  // Close menu after travel
+            }
+        },
+
+        drawDebugMenu: function() {
+            if (!this.debugMenuOpen) return;
+
+            // Semi-transparent overlay
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+            // Debug menu panel
+            const panelX = this.canvas.width / 2 - 200;
+            const panelY = 50;
+            const panelWidth = 400;
+            const panelHeight = 320;
+
+            this.ctx.fillStyle = 'white';
+            this.ctx.fillRect(panelX, panelY, panelWidth, panelHeight);
+            this.ctx.strokeStyle = '#333';
+            this.ctx.lineWidth = 3;
+            this.ctx.strokeRect(panelX, panelY, panelWidth, panelHeight);
+
+            // Title
+            this.ctx.fillStyle = 'black';
+            this.ctx.font = 'bold 20px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText('Debug Menu - Quick Travel', this.canvas.width / 2, panelY + 35);
+
+            // Travel options
+            this.ctx.font = '16px Arial';
+            this.ctx.textAlign = 'left';
+            const options = [
+                '1 - Indoor (House)',
+                '2 - Outdoor (Chickens & Orange Tree)',
+                '3 - Kitchen (Cooking)',
+                '4 - Bathroom (Hygiene)',
+                '5 - Airport (Travel Hub)',
+                '6 - Airplane (In Flight)',
+                '7 - Paris (City of Love)',
+                '8 - New York City (Big Apple)', 
+                '9 - Rainbow Unicorn Land 🦄'
+            ];
+
+            options.forEach((option, index) => {
+                this.ctx.fillText(option, panelX + 20, panelY + 80 + index * 25);
+            });
+
+            // Instructions
+            this.ctx.font = '14px Arial';
+            this.ctx.fillStyle = '#666';
+            this.ctx.fillText('Press number key to travel instantly', panelX + 20, panelY + 290);
+            this.ctx.fillText('Press D again to close debug menu', panelX + 20, panelY + 310);
         },
 
         updateHygiene: function() {
@@ -5133,100 +5213,172 @@
             },
             
             drawUnicorn: function(ctx, x, y) {
-                // Unicorn body
-                ctx.fillStyle = '#FFFFFF';
+                // Beautiful pink unicorn body with gradient
+                const bodyGradient = ctx.createRadialGradient(x, y, 0, x, y, 35);
+                bodyGradient.addColorStop(0, '#FFB6C1'); // Light pink center
+                bodyGradient.addColorStop(0.7, '#FF69B4'); // Hot pink middle
+                bodyGradient.addColorStop(1, '#FF1493'); // Deep pink edge
+                ctx.fillStyle = bodyGradient;
                 ctx.beginPath();
                 ctx.ellipse(x, y, 35, 20, 0, 0, Math.PI * 2);
                 ctx.fill();
-                ctx.strokeStyle = '#E0E0E0';
+                ctx.strokeStyle = '#FF69B4';
                 ctx.lineWidth = 2;
                 ctx.stroke();
                 
-                // Unicorn legs
-                ctx.fillStyle = '#FFFFFF';
+                // Pink unicorn legs with proper shape
+                ctx.fillStyle = '#FFB6C1';
                 ctx.fillRect(x - 25, y + 15, 8, 25);
                 ctx.fillRect(x - 10, y + 15, 8, 25);
                 ctx.fillRect(x + 5, y + 15, 8, 25);
                 ctx.fillRect(x + 20, y + 15, 8, 25);
                 
-                // Unicorn neck
-                ctx.fillStyle = '#FFFFFF';
+                // Beautiful hooves (the missing feature!)
+                ctx.fillStyle = '#8B4513'; // Brown hooves
+                ctx.beginPath();
+                ctx.ellipse(x - 21, y + 42, 6, 4, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(x - 6, y + 42, 6, 4, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(x + 9, y + 42, 6, 4, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(x + 24, y + 42, 6, 4, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Hoof shine highlights
+                ctx.fillStyle = '#DEB887';
+                ctx.beginPath();
+                ctx.ellipse(x - 21, y + 41, 3, 2, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(x - 6, y + 41, 3, 2, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(x + 9, y + 41, 3, 2, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(x + 24, y + 41, 3, 2, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Pink unicorn neck
+                ctx.fillStyle = '#FFB6C1';
                 ctx.beginPath();
                 ctx.ellipse(x - 30, y - 10, 15, 25, 0.3, 0, Math.PI * 2);
                 ctx.fill();
                 
-                // Unicorn head
-                ctx.fillStyle = '#FFFFFF';
+                // Pink unicorn head
+                ctx.fillStyle = '#FFB6C1';
                 ctx.beginPath();
                 ctx.ellipse(x - 40, y - 25, 20, 15, 0, 0, Math.PI * 2);
                 ctx.fill();
                 
-                // Unicorn horn (magical!)
-                ctx.fillStyle = '#FFD700';
+                // More prominent magical horn with beautiful spiral!
+                const hornGradient = ctx.createLinearGradient(x - 45, y - 45, x - 35, y - 25);
+                hornGradient.addColorStop(0, '#FFD700'); // Gold tip
+                hornGradient.addColorStop(0.3, '#FF69B4'); // Hot pink
+                hornGradient.addColorStop(0.6, '#9370DB'); // Medium slate blue
+                hornGradient.addColorStop(1, '#4169E1'); // Royal blue base
+                ctx.fillStyle = hornGradient;
                 ctx.beginPath();
-                ctx.moveTo(x - 40, y - 40);
+                ctx.moveTo(x - 40, y - 45);
                 ctx.lineTo(x - 35, y - 25);
                 ctx.lineTo(x - 45, y - 25);
                 ctx.closePath();
                 ctx.fill();
                 
-                // Horn spiral pattern
-                ctx.strokeStyle = '#FF69B4';
-                ctx.lineWidth = 2;
+                // Beautiful horn spiral pattern (more detailed)
+                ctx.strokeStyle = '#FFD700';
+                ctx.lineWidth = 3;
                 ctx.beginPath();
-                ctx.arc(x - 40, y - 35, 3, 0, Math.PI * 2);
+                for (let i = 0; i < 5; i++) {
+                    const spiralY = y - 42 + i * 3.5;
+                    const spiralRadius = 2 - i * 0.3;
+                    ctx.moveTo(x - 40 - spiralRadius, spiralY);
+                    ctx.lineTo(x - 40 + spiralRadius, spiralY + 1);
+                }
                 ctx.stroke();
-                ctx.beginPath();
-                ctx.arc(x - 40, y - 30, 2, 0, Math.PI * 2);
-                ctx.stroke();
                 
-                // Unicorn mane (rainbow colors)
-                const maneColors = ['#FF0000', '#FF7F00', '#FFFF00', '#00FF00', '#0000FF', '#8B00FF'];
-                maneColors.forEach((color, index) => {
-                    ctx.fillStyle = color;
-                    ctx.beginPath();
-                    ctx.ellipse(x - 50 + index * 3, y - 20 - index * 2, 8, 12, 0.2 * index, 0, Math.PI * 2);
-                    ctx.fill();
-                });
-                
-                // Unicorn tail (also rainbow!)
-                maneColors.forEach((color, index) => {
-                    ctx.fillStyle = color;
-                    ctx.beginPath();
-                    ctx.ellipse(x + 30 + index * 2, y + 5 - index, 6, 15, -0.3, 0, Math.PI * 2);
-                    ctx.fill();
-                });
-                
-                // Eye
-                ctx.fillStyle = '#000000';
-                ctx.beginPath();
-                ctx.arc(x - 45, y - 28, 3, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // Eye sparkle
+                // Horn tip sparkle
                 ctx.fillStyle = '#FFFFFF';
                 ctx.beginPath();
-                ctx.arc(x - 44, y - 29, 1, 0, Math.PI * 2);
+                ctx.arc(x - 40, y - 44, 2, 0, Math.PI * 2);
                 ctx.fill();
                 
-                // Nostril
-                ctx.fillStyle = '#FFB6C1';
+                // Unicorn mane (rainbow colors but more vibrant)
+                const maneColors = ['#FF0000', '#FF4500', '#FFD700', '#32CD32', '#1E90FF', '#8A2BE2', '#FF1493'];
+                maneColors.forEach((color, index) => {
+                    ctx.fillStyle = color;
+                    ctx.beginPath();
+                    ctx.ellipse(x - 52 + index * 3, y - 22 - index * 2, 10, 14, 0.2 * index, 0, Math.PI * 2);
+                    ctx.fill();
+                    // Add shine to mane
+                    ctx.fillStyle = color + '80'; // Semi-transparent for layering effect
+                    ctx.beginPath();
+                    ctx.ellipse(x - 50 + index * 3, y - 20 - index * 2, 6, 8, 0.2 * index, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                
+                // Unicorn tail (more flowing and beautiful!)
+                maneColors.forEach((color, index) => {
+                    ctx.fillStyle = color;
+                    ctx.beginPath();
+                    ctx.ellipse(x + 32 + index * 2.5, y + 3 - index * 1.5, 8, 18, -0.4, 0, Math.PI * 2);
+                    ctx.fill();
+                    // Tail shine
+                    ctx.fillStyle = color + '60';
+                    ctx.beginPath();
+                    ctx.ellipse(x + 34 + index * 2.5, y + 1 - index * 1.5, 4, 12, -0.4, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                
+                // Larger, more expressive eye
+                ctx.fillStyle = '#000000';
+                ctx.beginPath();
+                ctx.arc(x - 45, y - 28, 4, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Eye sparkle (more prominent)
+                ctx.fillStyle = '#FFFFFF';
+                ctx.beginPath();
+                ctx.arc(x - 43, y - 30, 2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(x - 46, y - 27, 1, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Pink nostril
+                ctx.fillStyle = '#FF69B4';
                 ctx.beginPath();
                 ctx.arc(x - 50, y - 22, 2, 0, Math.PI * 2);
                 ctx.fill();
                 
-                // Magical sparkles around unicorn (static positions)
-                ctx.fillStyle = '#FFD700';
-                ctx.font = '12px Arial';
+                // Cute smile
+                ctx.strokeStyle = '#FF1493';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(x - 52, y - 18, 4, 0, Math.PI);
+                ctx.stroke();
+                
+                // More magical sparkles around unicorn (with variety)
+                const sparkleTypes = ['✨', '⭐', '💫', '🌟', '✨'];
+                const sparkleColors = ['#FFD700', '#FF69B4', '#9370DB', '#FF1493', '#00BFFF'];
                 const sparklePositions = [
-                    {x: x - 20, y: y - 40},
-                    {x: x + 10, y: y - 35},
-                    {x: x - 35, y: y + 10},
-                    {x: x + 25, y: y - 15},
-                    {x: x - 10, y: y + 30}
+                    {x: x - 20, y: y - 45, type: 0},
+                    {x: x + 15, y: y - 40, type: 1},
+                    {x: x - 38, y: y + 8, type: 2},
+                    {x: x + 30, y: y - 18, type: 3},
+                    {x: x - 15, y: y + 35, type: 4},
+                    {x: x - 60, y: y - 5, type: 0},
+                    {x: x + 45, y: y + 10, type: 1}
                 ];
+                
                 sparklePositions.forEach(pos => {
-                    ctx.fillText('✨', pos.x, pos.y);
+                    ctx.fillStyle = sparkleColors[pos.type];
+                    ctx.font = '14px Arial';
+                    ctx.fillText(sparkleTypes[pos.type], pos.x, pos.y);
                 });
             },
             
@@ -5903,6 +6055,10 @@
                 if (game.currentScene === 'airplane') {
                     airplane.changeChannel();
                 }
+            } else if (e.key === 'd' || e.key === 'D') {
+                game.toggleDebugMenu();
+            } else if (game.debugMenuOpen && e.key >= '1' && e.key <= '9') {
+                game.handleDebugTravel(parseInt(e.key));
             }
         },
 
